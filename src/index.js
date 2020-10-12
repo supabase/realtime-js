@@ -168,6 +168,5 @@
 
 module.exports = {
   Channel: require('./channel'),
-  Socket: require('./socket'),
-  Presence: require('./presence'),
+  Socket: require('./socket')
 }

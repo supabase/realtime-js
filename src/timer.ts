@@ -29,7 +29,7 @@ export default class Timer {
   scheduleTimeout() {
     clearTimeout(this.timer)
 
-    this.timer = setTimeout(() => {
+    this.timer = <any>setTimeout(() => {
       this.tries = this.tries + 1
       this.callback()
     }, this.timerCalc(this.tries + 1))

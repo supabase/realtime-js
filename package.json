@@ -24,6 +24,7 @@
   "homepage": "https://supabase.io",
   "dependencies": {
     "@babel/runtime": "^7.9.2",
+    "@types/websocket": "^1.0.1",
     "prettier": "^2.1.2",
     "query-string": "^6.12.1",
     "websocket": "^1.0.31"
