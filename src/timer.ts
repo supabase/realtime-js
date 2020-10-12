@@ -1,4 +1,3 @@
-
 // Creates a timer that accepts a `timerCalc` function to perform
 // calculated timeout retries, such as exponential backoff.
 //
@@ -12,21 +11,22 @@
 //    reconnectTimer.reset()
 //    reconnectTimer.scheduleTimeout() // fires after 1000
 //
-class Timer {
-  constructor(callback, timerCalc){
-    this.callback  = callback
+export default class Timer {
+  timer: number | undefined = undefined
+  tries: number = 0
+
+  constructor(public callback: Function, public timerCalc: Function) {
+    this.callback = callback
     this.timerCalc = timerCalc
-    this.timer     = null
-    this.tries     = 0
   }
 
-  reset(){
+  reset() {
     this.tries = 0
     clearTimeout(this.timer)
   }
 
   // Cancels any previous scheduleTimeout and schedules callback
-  scheduleTimeout(){
+  scheduleTimeout() {
     clearTimeout(this.timer)
 
     this.timer = setTimeout(() => {
@@ -35,5 +35,3 @@ class Timer {
     }, this.timerCalc(this.tries + 1))
   }
 }
-
-module.exports = Timer
