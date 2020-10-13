@@ -148,7 +148,7 @@ export default class Socket {
     if (this.conn) {
       // this.conn.timeout = this.longpollerTimeout // TYPE ERROR
       this.conn.onopen = () => this.onConnOpen()
-      this.conn.onerror = (error) => this.onConnError(error.toString())
+      this.conn.onerror = (error) => this.onConnError(error)
       this.conn.onmessage = (event) => this.onConnMessage(event)
       this.conn.onclose = (event) => this.onConnClose(event)
     }
@@ -201,8 +201,8 @@ export default class Socket {
     this.stateChangeCallbacks.close.forEach((callback) => callback(event))
   }
 
-  onConnError(error: string) {
-    this.log('transport', error)
+  onConnError(error: Error) {
+    this.log('transport', error.message)
     this.triggerChanError()
     this.stateChangeCallbacks.error.forEach((callback) => callback(error))
   }
