@@ -1,6 +1,6 @@
 /**
  * Creates a timer that accepts a `timerCalc` function to perform calculated timeout retries, such as exponential backoff.
- * 
+ *
  * @example
  *    let reconnectTimer = new Timer(() => this.connect(), function(tries){
  *      return [1000, 5000, 10000][tries - 1] || 10000

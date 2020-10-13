@@ -1,7 +1,7 @@
-import { CHANNEL_EVENTS, CHANNEL_STATES, SOCKET_STATES } from './constants'
-import Push from './push'
+import { CHANNEL_EVENTS, CHANNEL_STATES } from './lib/constants'
+import Push from './lib/push'
 import Socket from './socket'
-import Timer from './timer'
+import Timer from './lib/timer'
 
 export default class Channel {
   bindings: any[] = []

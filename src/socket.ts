@@ -5,9 +5,9 @@ import {
   SOCKET_STATES,
   DEFAULT_TIMEOUT,
   WS_CLOSE_NORMAL,
-} from './constants'
+} from './lib/constants'
 import querystring from 'query-string'
-import Timer from './timer'
+import Timer from './lib/timer'
 import Channel from './channel'
 import { w3cwebsocket as WebSocket } from 'websocket'
 
@@ -256,7 +256,7 @@ export default class Socket {
       this.sendBuffer.push(callback)
     }
   }
-  
+
   /**
    * Return the next message ref, accounting for overflows
    */

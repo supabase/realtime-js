@@ -1,5 +1,5 @@
-import { DEFAULT_TIMEOUT, CHANNEL_EVENTS } from './constants'
-import Channel from './channel'
+import { DEFAULT_TIMEOUT } from './constants'
+import Channel from '../channel'
 
 export default class Push {
   sent: boolean = false

@@ -1,5 +1,3 @@
-
-
 /**
  * 
 Phoenix Channels JavaScript client
@@ -116,8 +114,6 @@ accepts optional `onJoin` and `onLeave` callbacks to react to a user
 joining or leaving from a device.
 
 */
-
-
 
 export { default as Channel } from './channel'
 export { default as Socket } from './socket'
