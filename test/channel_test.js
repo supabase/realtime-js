@@ -4,7 +4,7 @@ import jsdom from 'jsdom'
 import sinon from 'sinon'
 import { WebSocket, Server as WebSocketServer } from 'mock-socket'
 
-import { Channel, Socket } from '../src'
+import { Channel, Socket } from '../dist/main'
 
 let channel, socket
 

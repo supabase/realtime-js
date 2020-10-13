@@ -2,7 +2,7 @@ import assert from "assert"
 import { Server as WebSocketServer, WebSocket } from "mock-socket"
 import sinon from "sinon"
 import { w3cwebsocket as W3CWebSocket } from "websocket"
-import { Socket } from "../src"
+import { Socket } from "../dist/main"
 
 
 
