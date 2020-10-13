@@ -2,8 +2,25 @@
   "name": "@supabase/realtime-js",
   "version": "0.9.0",
   "description": "Listen to realtime updates to your PostgreSQL database",
-  "repository": "https://github.com/supabase/realtime",
-  "main": "src/index.js",
+  "keywords": [
+    "realtime",
+    "phoenix",
+    "elixir",
+    "javascript",
+    "typescript",
+    "firebase",
+    "supabase"
+  ],
+  "homepage": "https://github.com/supabase/realtime-js",
+  "bugs": "https://github.com/supabase/realtime-js/issues",
+  "files": [
+    "dist"
+  ],
+  "main": "dist/main/index.js",
+  "module": "dist/module/index.js",
+  "repository": "https://github.com/supabase/realtime-js",
+  "author": "Supabase",
+  "license": "MIT",
   "scripts": {
     "clean": "rimraf dist docs",
     "format": "prettier --write \"{src,test}/**/*.ts\"",
@@ -15,12 +32,6 @@
     "docs": "typedoc --mode file --target ES6 --theme minimal",
     "docs:json": "typedoc --json docs/spec.json --mode modules --includeDeclarations --excludeExternals"
   },
-  "author": "Supabase",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/supabase/realtime/issues"
-  },
-  "homepage": "https://supabase.io",
   "dependencies": {
     "query-string": "^6.12.1",
     "websocket": "^1.0.31"
