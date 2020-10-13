@@ -156,7 +156,7 @@ describe('joinPush', () => {
     },
 
     getBindings(event) {
-      return channel.bindings.filter(bind => bind.event === event)
+      return channel.bindings.filter((bind) => bind.event === event)
     },
   }
 
@@ -341,7 +341,10 @@ describe('joinPush', () => {
 
       helpers.receiveTimeout()
 
-      assert.deepEqual(joinPush.receivedResp, { status: 'timeout', response: {} })
+      assert.deepEqual(joinPush.receivedResp, {
+        status: 'timeout',
+        response: {},
+      })
     })
   })
 
@@ -772,7 +775,9 @@ describe('push', () => {
     const timeoutSpy = sinon.spy()
     channel.join().trigger('ok', {})
 
-    channel.push('event', { foo: 'bar' }, channel.timeout * 2).receive('timeout', timeoutSpy)
+    channel
+      .push('event', { foo: 'bar' }, channel.timeout * 2)
+      .receive('timeout', timeoutSpy)
 
     clock.tick(channel.timeout)
     assert.ok(!timeoutSpy.called)
@@ -797,7 +802,10 @@ describe('push', () => {
   })
 
   it('throws if channel has not been joined', () => {
-    assert.throws(() => channel.push('event', {}), /tried to push.*before joining/)
+    assert.throws(
+      () => channel.push('event', {}),
+      /tried to push.*before joining/
+    )
   })
 })
 
