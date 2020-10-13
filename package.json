@@ -11,7 +11,9 @@
     "build:main": "tsc -p tsconfig.json",
     "build:module": "tsc -p tsconfig.module.json",
     "mocha": "node -r esm node_modules/.bin/mocha --exit ./test/**/*.js -r jsdom-global/register",
-    "test": "run-s clean build mocha"
+    "test": "run-s clean build mocha",
+    "docs": "typedoc --mode file --target ES6 --theme minimal",
+    "docs:json": "typedoc --json docs/spec.json --mode modules --includeDeclarations --excludeExternals"
   },
   "author": "Supabase",
   "license": "MIT",
@@ -20,12 +22,12 @@
   },
   "homepage": "https://supabase.io",
   "dependencies": {
-    "@babel/runtime": "^7.9.2",
-    "@types/websocket": "^1.0.1",
     "query-string": "^6.12.1",
     "websocket": "^1.0.31"
   },
   "devDependencies": {
+    "@babel/runtime": "^7.9.2",
+    "@types/websocket": "^1.0.1",
     "babel-preset-env": "^1.7.0",
     "babel-register": "^6.26.0",
     "eslint": "^7.0.0",
