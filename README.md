@@ -18,7 +18,7 @@ var socket = new Socket(process.env.REALTIME_URL)
 socket.connect()
 ```
 
-**Socket events**
+**Socket status listeners**
 
 ```js
 socket.onOpen(() => console.log('Socket opened.'))
@@ -54,7 +54,7 @@ usersTable.on('DELETE', (e) => console.log(e))
 usersTable.subscribe()
 ```
 
-**Subscription events**
+**Subscription status listeners**
 
 ```js
 
