@@ -30,15 +30,18 @@ socket.onError((e) => console.log('Socket error', e.message))
 
 You can listen to `INSERT`, `UPDATE`, `DELETE`, or all `*` events.
 
-You can subscribe to events:
-
-- For the whole database: `realtime`
-- For a particular schema: `realtime:{SCHEMA}`. eg: `realtime:public`
-- For a particular table: `realtime:{SCHEMA}:{TABLE}`. eg: `realtime:public:users`
-- For individual columns: `realtime:{SCHEMA}:{TABLE}:{COL}.eq.{VAL}`. eg: `realtime:public:users:id.eq.1`
-
+You can subscribe to events on the whole database, schema, table, or individual columns.
 
 ```js
+// Listen to events on the entire database.
+var databaseChanges = socket.channel('realtime')
+databaseChanges.on('*', (e) => console.log(e))
+databaseChanges.on('INSERT', (e) => console.log(e))
+databaseChanges.on('UPDATE', (e) => console.log(e))
+databaseChanges.on('DELETE', (e) => console.log(e))
+databaseChanges.subscribe()
+
+// Listen to events on a schema, using the format `realtime:{SCHEMA}`
 var publicSchema = socket.channel('realtime:public')
 publicSchema.on('*', (e) => console.log(e))
 publicSchema.on('INSERT', (e) => console.log(e))
@@ -46,12 +49,21 @@ publicSchema.on('UPDATE', (e) => console.log(e))
 publicSchema.on('DELETE', (e) => console.log(e))
 publicSchema.subscribe()
 
+// Listen to events on a table, using the format `realtime:{SCHEMA}:{TABLE}`
 var usersTable = socket.channel('realtime:public:users')
 usersTable.on('*', (e) => console.log(e))
 usersTable.on('INSERT', (e) => console.log(e))
 usersTable.on('UPDATE', (e) => console.log(e))
 usersTable.on('DELETE', (e) => console.log(e))
 usersTable.subscribe()
+
+// Listen to events on a row, using the format `realtime:{SCHEMA}:{TABLE}:{COL}.eq.{VAL}`
+var rowChanges = socket.channel('realtime:public:users:id.eq.1')
+rowChanges.on('*', (e) => console.log(e))
+rowChanges.on('INSERT', (e) => console.log(e))
+rowChanges.on('UPDATE', (e) => console.log(e))
+rowChanges.on('DELETE', (e) => console.log(e))
+rowChanges.subscribe()
 ```
 
 **Subscription status listeners**
@@ -66,7 +78,34 @@ publicSchema
 
 ```
 
+### Event Responses
 
+Events are returned in the following format.
+
+```ts
+type Response = {
+  commit_timestamp: string // the change timestampe. eg: "2020-10-13T10:09:22Z".
+  schema: string // the database schema. eg: "public".
+  table: string // the database table. eg: "users".
+  type: INSERT | UPDATE | DELETE // the event type.
+  columns: column[] // all the columns for this table. See "column" type below.
+  record: object // the new values. eg: { "id": "9", "age": "12" }.
+  old_record: object // the previous values. eg: { "id": "9", "age": "11" }. Only works if the table has `REPLICATION FULL`.
+}
+
+type column = {
+  flags: string[] // any special flags for the column. eg: ["key"]
+  name: string // the column name. eg: "user_id"
+  type: string // the column type. eg: "uuid"
+  type_modifier: number // the type modifier. eg: 4294967295
+}
+```
+
+## FAQ
+
+**Can I use filters on the rows?**
+
+At the moment we only 
 
 ## Credits
 
