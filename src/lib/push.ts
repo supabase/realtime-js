@@ -1,4 +1,4 @@
-import { DEFAULT_TIMEOUT } from './constants'
+import { DEFAULT_TIMEOUT } from '../lib/constants'
 import Channel from '../channel'
 
 export default class Push {
@@ -32,7 +32,7 @@ export default class Push {
 
   resend(timeout: number) {
     this.timeout = timeout
-    this.cancelRefEvent()
+    this._cancelRefEvent()
     this.ref = ''
     this.refEvent = null
     this.receivedResp = null
@@ -41,7 +41,7 @@ export default class Push {
   }
 
   send() {
-    if (this.hasReceived('timeout')) {
+    if (this._hasReceived('timeout')) {
       return
     }
     this.startTimeout()
@@ -55,32 +55,12 @@ export default class Push {
   }
 
   receive(status: string, callback: Function) {
-    if (this.hasReceived(status)) {
+    if (this._hasReceived(status)) {
       callback(this.receivedResp?.response)
     }
 
     this.recHooks.push({ status, callback })
     return this
-  }
-
-  // private
-
-  matchReceive({ status, response }: { status: string; response: Function }) {
-    this.recHooks
-      .filter((h) => h.status === status)
-      .forEach((h) => h.callback(response))
-  }
-
-  cancelRefEvent() {
-    if (!this.refEvent) {
-      return
-    }
-    this.channel.off(this.refEvent)
-  }
-
-  cancelTimeout() {
-    clearTimeout(this.timeoutTimer)
-    this.timeoutTimer = undefined
   }
 
   startTimeout() {
@@ -91,10 +71,10 @@ export default class Push {
     this.refEvent = this.channel.replyEventName(this.ref)
 
     this.channel.on(this.refEvent, (payload: any) => {
-      this.cancelRefEvent()
-      this.cancelTimeout()
+      this._cancelRefEvent()
+      this._cancelTimeout()
       this.receivedResp = payload
-      this.matchReceive(payload)
+      this._matchReceive(payload)
     })
 
     this.timeoutTimer = <any>setTimeout(() => {
@@ -102,11 +82,35 @@ export default class Push {
     }, this.timeout)
   }
 
-  hasReceived(status: string) {
-    return this.receivedResp && this.receivedResp.status === status
-  }
-
   trigger(status: string, response: any) {
     if (this.refEvent) this.channel.trigger(this.refEvent, { status, response })
+  }
+
+  private _cancelRefEvent() {
+    if (!this.refEvent) {
+      return
+    }
+    this.channel.off(this.refEvent)
+  }
+
+  private _cancelTimeout() {
+    clearTimeout(this.timeoutTimer)
+    this.timeoutTimer = undefined
+  }
+
+  private _matchReceive({
+    status,
+    response,
+  }: {
+    status: string
+    response: Function
+  }) {
+    this.recHooks
+      .filter((h) => h.status === status)
+      .forEach((h) => h.callback(response))
+  }
+
+  private _hasReceived(status: string) {
+    return this.receivedResp && this.receivedResp.status === status
   }
 }
