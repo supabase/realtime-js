@@ -113,18 +113,15 @@ export default class Channel {
     return pushEvent
   }
 
-  // Leaves the channel
-  //
-  // Unsubscribes from server events, and
-  // instructs channel to terminate on server
-  //
-  // Triggers onClose() hooks
-  //
-  // To receive leave acknowledgements, use the a `receive`
-  // hook to bind to the server ack, ie:
-  //
-  //     channel.leave().receive("ok", () => alert("left!") )
-  //
+  /**
+   * Leaves the channel
+   *
+   * Unsubscribes from server events, and instructs channel to terminate on server.
+   * Triggers onClose() hooks.
+   *
+   * To receive leave acknowledgements, use the a `receive` hook to bind to the server ack, ie:
+   *  channel.leave().receive("ok", () => alert("left!") )
+   */
   leave(timeout = this.timeout) {
     this.state = CHANNEL_STATES.leaving
     let onClose = () => {
@@ -141,17 +138,15 @@ export default class Channel {
     return leavePush
   }
 
-  // Overridable message hook
-  //
-  // Receives all events for specialized message handling
-  // before dispatching to the channel callbacks.
-  //
-  // Must return the payload, modified or unmodified
+  /**
+   * Overridable message hook
+   *
+   * Receives all events for specialized message handling before dispatching to the channel callbacks.
+   * Must return the payload, modified or unmodified.
+   */
   onMessage(event: string, payload: any, ref?: string) {
     return payload
   }
-
-  // private
 
   isMember(topic: string) {
     return this.topic === topic

@@ -154,17 +154,19 @@ export default class Socket {
     }
   }
 
-  // Logs the message. Override `this.logger` for specialized logging. noops by default
+  /**
+   * Logs the message. Override `this.logger` for specialized logging. noops by default.
+   */
   log(kind: string, msg: string, data?: any) {
     this.logger(kind, msg, data)
   }
 
-  // Registers callbacks for connection state change events
-  //
-  // Examples
-  //
-  //    socket.onError(function(error){ alert("An error occurred") })
-  //
+  /**
+   * Registers callbacks for connection state change events.
+   *
+   * @example
+   *    socket.onError(function(error){ alert("An error occurred") })
+   */
   onOpen(callback: Function) {
     this.stateChangeCallbacks.open.push(callback)
   }
@@ -254,8 +256,10 @@ export default class Socket {
       this.sendBuffer.push(callback)
     }
   }
-
-  // Return the next message ref, accounting for overflows
+  
+  /**
+   * Return the next message ref, accounting for overflows
+   */
   makeRef() {
     let newRef = this.ref + 1
     if (newRef === this.ref) {

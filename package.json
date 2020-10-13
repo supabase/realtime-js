@@ -13,7 +13,7 @@
     "deploy:minor": "npm version minor && npm publish --access=public",
     "deploy:patch": "npm version patch && npm publish --access=public",
     "mocha": "node -r esm node_modules/.bin/mocha --exit ./test/**/*.js -r jsdom-global/register",
-    "test": "npm run clean && npm run build && npm run mocha"
+    "test": "run-s clean build mocha"
   },
   "author": "Supabase",
   "license": "MIT",
