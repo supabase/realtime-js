@@ -2,11 +2,12 @@
 
 Listens to changes in a PostgreSQL Database and via websockets.
 
-## Usage
-
 This is for usage with Supabase [Realtime](https://github.com/supabase/realtime) server.
 
-#### Creating a Socket connection
+## Usage
+
+
+### Creating a Socket connection
 
 You can set up one connection to be used across the whole app.
 
@@ -25,7 +26,7 @@ socket.onClose(() => console.log('Socket closed.'))
 socket.onError((e) => console.log('Socket error', e.message))
 ```
 
-#### Subscribing to events
+### Subscribing to events
 
 You can listen to `INSERT`, `UPDATE`, `DELETE`, or all `*` events.
 
