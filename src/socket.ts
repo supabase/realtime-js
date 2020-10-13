@@ -148,7 +148,7 @@ export default class Socket {
     if (this.conn) {
       // this.conn.timeout = this.longpollerTimeout // TYPE ERROR
       this.conn.onopen = () => this.onConnOpen()
-      this.conn.onerror = (error) => this.onConnError(error.message)
+      this.conn.onerror = (error) => this.onConnError(error.toString())
       this.conn.onmessage = (event) => this.onConnMessage(event)
       this.conn.onclose = (event) => this.onConnClose(event)
     }
