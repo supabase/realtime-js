@@ -68,7 +68,7 @@ export default class Channel {
     }
   }
 
-  join(timeout = this.timeout) {
+  subscribe(timeout = this.timeout) {
     if (this.joinedOnce) {
       throw `tried to join multiple times. 'join' can only be called a single time per channel instance`
     } else {
@@ -120,9 +120,9 @@ export default class Channel {
    * Triggers onClose() hooks.
    *
    * To receive leave acknowledgements, use the a `receive` hook to bind to the server ack, ie:
-   *  channel.leave().receive("ok", () => alert("left!") )
+   * channel.unsubscribe().receive("ok", () => alert("left!") )
    */
-  leave(timeout = this.timeout) {
+  unsubscribe(timeout = this.timeout) {
     this.state = CHANNEL_STATES.leaving
     let onClose = () => {
       this.socket.log('channel', `leave ${this.topic}`)
