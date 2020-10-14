@@ -34,7 +34,7 @@ You can subscribe to events on the whole database, schema, table, or individual 
 
 To join a channel, you must provide the `topic`, where a topic is either:
 
-- `realtime:` - entire database
+- `realtime` - entire database
 - `realtime:{schema}` - where `{schema}` is the Postgres Schema
 - `realtime:{schema}:{table}` - where `{table}` is the Postgres table name
 - `realtime:{schema}:{table}:{col}.eq.{val}` - where `{col}` is the column name, and `{val}` is the value which you want to match
