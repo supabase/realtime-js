@@ -18,7 +18,7 @@ var socket = new Socket(process.env.REALTIME_URL)
 socket.connect()
 ```
 
-**Socket status listeners**
+**Socket Hooks**
 
 ```js
 socket.onOpen(() => console.log('Socket opened.'))
@@ -30,7 +30,17 @@ socket.onError((e) => console.log('Socket error', e.message))
 
 You can listen to `INSERT`, `UPDATE`, `DELETE`, or all `*` events.
 
-You can subscribe to events on the whole database, schema, table, or individual columns.
+You can subscribe to events on the whole database, schema, table, or individual columns using `channel()`. Channels are multiplexed over the Socket connection. 
+
+To join a channel, you must provide the `topic`, where a topic is either:
+
+- `realtime:` - entire database
+- `realtime:{schema}` - where `{schema}` is the Postgres Schema
+- `realtime:{schema}:{table}` - where `{table}` is the Postgres table name
+- `realtime:{schema}:{table}:{col}.eq.{val}` - where `{col}` is the column name, and `{val}` is the value which you want to match
+ 
+
+**Examples**
 
 ```js
 // Listen to events on the entire database.
@@ -66,7 +76,28 @@ rowChanges.on('DELETE', (e) => console.log(e))
 rowChanges.subscribe()
 ```
 
-**Subscription status listeners**
+**Removing a subscription**
+
+You can unsubscribe from a topic using `channel.unsubscribe()`.
+
+
+**Duplicate Join Subscriptions**
+
+While the client may join any number of topics on any number of channels, the client may only hold a single subscription for each unique topic at any given time. When attempting to create a duplicate subscription, the server will close the existing channel, log a warning, and spawn a new channel for the topic. The client will have their `channel.onClose` callbacks fired for the existing channel, and the new
+channel join will have its receive hooks processed as normal.
+
+
+**Channel Hooks**
+
+```js
+channel.onError( () => console.log("there was an error!") )
+channel.onClose( () => console.log("the channel has gone away gracefully") )
+```
+
+- `onError` hooks are invoked if the socket connection drops, or the channel crashes on the server. In either case, a channel rejoin is attempted automatically in an exponential backoff manner.
+- `onClose` hooks are invoked only in two cases. 1) the channel explicitly closed on the server, or 2). The client explicitly closed, by calling `channel.unsubscribe()`
+
+**Subscription Hooks**
 
 ```js
 
@@ -84,28 +115,42 @@ Events are returned in the following format.
 
 ```ts
 type Response = {
-  commit_timestamp: string // the change timestampe. eg: "2020-10-13T10:09:22Z".
-  schema: string // the database schema. eg: "public".
-  table: string // the database table. eg: "users".
-  type: INSERT | UPDATE | DELETE // the event type.
-  columns: column[] // all the columns for this table. See "column" type below.
-  record: object // the new values. eg: { "id": "9", "age": "12" }.
-  old_record: object // the previous values. eg: { "id": "9", "age": "11" }. Only works if the table has `REPLICATION FULL`.
+  // the change timestampe. eg: "2020-10-13T10:09:22Z".
+  commit_timestamp: string 
+
+  // the database schema. eg: "public".
+  schema: string 
+  
+  // the database table. eg: "users".
+  table: string 
+  
+  // the event type.
+  type: INSERT | UPDATE | DELETE 
+  
+  // all the columns for this table. See "column" type below.
+  columns: column[] 
+  
+  // the new values. eg: { "id": "9", "age": "12" }.
+  record: object 
+
+  // the previous values. eg: { "id": "9", "age": "11" }. Only works if the table has `REPLICATION FULL`.
+  old_record: object 
 }
 
 type column = {
-  flags: string[] // any special flags for the column. eg: ["key"]
-  name: string // the column name. eg: "user_id"
-  type: string // the column type. eg: "uuid"
-  type_modifier: number // the type modifier. eg: 4294967295
+  // any special flags for the column. eg: ["key"]
+  flags: string[] 
+  
+  // the column name. eg: "user_id"
+  name: string 
+  
+  // the column type. eg: "uuid"
+  type: string 
+  
+  // the type modifier. eg: 4294967295
+  type_modifier: number 
 }
-```
-
-## FAQ
-
-**Can I use filters on the rows?**
-
-At the moment we only 
+``` 
 
 ## Credits
 
