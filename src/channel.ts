@@ -70,7 +70,7 @@ export default class Channel {
 
   subscribe(timeout = this.timeout) {
     if (this.joinedOnce) {
-      throw `tried to join multiple times. 'join' can only be called a single time per channel instance`
+      throw `tried to subscribe multiple times. 'subscribe' can only be called a single time per channel instance`
     } else {
       this.joinedOnce = true
       this.rejoin(timeout)
@@ -100,7 +100,7 @@ export default class Channel {
 
   push(event: CHANNEL_EVENTS, payload: any, timeout = this.timeout) {
     if (!this.joinedOnce) {
-      throw `tried to push '${event}' to '${this.topic}' before joining. Use channel.join() before pushing events`
+      throw `tried to push '${event}' to '${this.topic}' before joining. Use channel.subscribe() before pushing events`
     }
     let pushEvent = new Push(this, event, payload, timeout)
     if (this.canPush()) {

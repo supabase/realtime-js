@@ -64,7 +64,7 @@ describe('join', () => {
   it('throws if attempting to join multiple times', () => {
     channel.subscribe()
 
-    assert.throws(() => channel.subscribe(), /tried to join multiple times/)
+    assert.throws(() => channel.subscribe(), /tried to subscribe multiple times/)
   })
 
   it('triggers socket push with channel params', () => {
