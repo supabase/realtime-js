@@ -454,9 +454,9 @@ describe('setAuth', () => {
   })
 
   it('sets access token and pushes it to channels', () => {
-    const channel1 = socket.channel('test-topic')
+    const channel1 = socket.channel('test-topic', { user_token: 'token999' })
     const channel2 = socket.channel('test-topic')
-    const channel3 = socket.channel('test-topic')
+    const channel3 = socket.channel('test-topic', { test: 'test' })
 
     channel1.joinedOnce = true
     channel1.state = 'joined'
@@ -472,6 +472,7 @@ describe('setAuth', () => {
     socket.setAuth('token123')
 
     assert.strictEqual(socket.accessToken, 'token123')
+
     assert.ok(stub1.calledWith('access_token', {
       access_token: 'token123',
     }))
@@ -481,6 +482,10 @@ describe('setAuth', () => {
     assert.ok(stub3.calledWith('access_token', {
       access_token: 'token123',
     }))
+
+    assert.deepEqual(channel1.params, { user_token: 'token123' })
+    assert.deepEqual(channel2.params, { user_token: 'token123' })
+    assert.deepEqual(channel3.params, { user_token: 'token123', test: 'test' })
   })
 })
 

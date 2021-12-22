@@ -14,7 +14,7 @@ export default class RealtimeSubscription {
 
   constructor(
     public topic: string,
-    public params: any = {},
+    public params: { [key: string]: unknown } = {},
     public socket: RealtimeClient
   ) {
     this.timeout = this.socket.timeout
@@ -111,6 +111,13 @@ export default class RealtimeSubscription {
     }
 
     return pushEvent
+  }
+
+  updateParams(newParams: { [key: string]: unknown }): {
+    [key: string]: unknown
+  } {
+    this.params = { ...this.params, ...newParams }
+    return this.params
   }
 
   /**
