@@ -1,18 +1,20 @@
-import { DEFAULT_TIMEOUT } from '../lib/constants'
 import RealtimeSubscription from '../RealtimeSubscription'
+import { GenericObject } from './types'
+import { closure } from './utils'
 
 export default class Push {
-  sent: boolean = false
-  timeoutTimer: number | undefined = undefined
-  ref: string = ''
+  payload: () => GenericObject
   receivedResp: {
     status: string
-    response: Function
+    response: Record<string, string>
   } | null = null
+  timeoutTimer: ReturnType<typeof setTimeout> | undefined = undefined
   recHooks: {
     status: string
     callback: Function
   }[] = []
+  sent: boolean = false
+  ref: string | null = null
   refEvent: string | null = null
 
   /**
@@ -26,21 +28,19 @@ export default class Push {
   constructor(
     public channel: RealtimeSubscription,
     public event: string,
-    public payload: { [key: string]: unknown } = {},
-    public timeout: number = DEFAULT_TIMEOUT
-  ) {}
+    payload: GenericObject | (() => GenericObject) | undefined,
+    public timeout: number
+  ) {
+    this.payload = closure(payload || {})
+  }
 
-  resend(timeout: number) {
+  resend(timeout: number): void {
     this.timeout = timeout
-    this._cancelRefEvent()
-    this.ref = ''
-    this.refEvent = null
-    this.receivedResp = null
-    this.sent = false
+    this.reset()
     this.send()
   }
 
-  send() {
+  send(): void {
     if (this._hasReceived('timeout')) {
       return
     }
@@ -49,16 +49,17 @@ export default class Push {
     this.channel.socket.push({
       topic: this.channel.topic,
       event: this.event,
-      payload: this.payload,
+      payload: this.payload(),
       ref: this.ref,
+      join_ref: this.channel.joinRef(),
     })
   }
 
-  updatePayload(payload: { [key: string]: unknown }): void {
-    this.payload = { ...this.payload, ...payload }
+  updatePayload(payload: GenericObject): void {
+    this.payload = closure({ ...this.payload, ...payload })
   }
 
-  receive(status: string, callback: Function) {
+  receive(status: string, callback: Function): Push {
     if (this._hasReceived(status)) {
       callback(this.receivedResp?.response)
     }
@@ -67,32 +68,38 @@ export default class Push {
     return this
   }
 
-  startTimeout() {
+  reset(): void {
+    this._cancelRefEvent()
+    this.ref = null
+    this.refEvent = null
+    this.receivedResp = null
+    this.sent = false
+  }
+
+  startTimeout(): void {
     if (this.timeoutTimer) {
-      return
+      this._cancelTimeout()
     }
     this.ref = this.channel.socket.makeRef()
     this.refEvent = this.channel.replyEventName(this.ref)
 
-    this.channel.on(this.refEvent, (payload: any) => {
-      this._cancelRefEvent()
-      this._cancelTimeout()
-      this.receivedResp = payload
-      this._matchReceive(payload)
-    })
+    this.channel.on(
+      this.refEvent,
+      (payload: { status: string; response: Record<string, string> }) => {
+        this._cancelRefEvent()
+        this._cancelTimeout()
+        this.receivedResp = payload
+        this._matchReceive(payload)
+      }
+    )
 
-    this.timeoutTimer = <any>setTimeout(() => {
+    this.timeoutTimer = setTimeout(() => {
       this.trigger('timeout', {})
     }, this.timeout)
   }
 
-  trigger(status: string, response: any) {
-    if (this.refEvent) this.channel.trigger(this.refEvent, { status, response })
-  }
-
-  destroy() {
-    this._cancelRefEvent()
-    this._cancelTimeout()
+  trigger(status: string, response: GenericObject) {
+    this.channel.trigger(this.refEvent, { status, response })
   }
 
   private _cancelRefEvent() {
@@ -103,7 +110,7 @@ export default class Push {
   }
 
   private _cancelTimeout() {
-    clearTimeout(this.timeoutTimer)
+    this.timeoutTimer && clearTimeout(this.timeoutTimer)
     this.timeoutTimer = undefined
   }
 
@@ -112,14 +119,14 @@ export default class Push {
     response,
   }: {
     status: string
-    response: Function
+    response: Record<string, string>
   }) {
     this.recHooks
       .filter((h) => h.status === status)
       .forEach((h) => h.callback(response))
   }
 
-  private _hasReceived(status: string) {
-    return this.receivedResp && this.receivedResp.status === status
+  private _hasReceived(status: string): boolean {
+    return !!this.receivedResp && this.receivedResp.status === status
   }
 }

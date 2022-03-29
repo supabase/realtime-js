@@ -134,44 +134,44 @@ publicSchema
 Events are returned in the following format.
 
 ```ts
-type Response = {
+type ChangePayload = {
+  // the event type.
+  type: 'INSERT' | 'UPDATE' | 'DELETE'
+
   // the change timestamp. eg: "2020-10-13T10:09:22Z".
-  commit_timestamp: string 
+  commit_timestamp: string
 
   // the database schema. eg: "public".
-  schema: string 
+  schema: string
   
   // the database table. eg: "users".
-  table: string 
-  
-  // the event type.
-  type: INSERT | UPDATE | DELETE 
+  table: string
   
   // all the columns for this table. See "column" type below.
-  columns: column[] 
-  
-  // the new values. eg: { "id": "9", "age": "12" }.
-  record: object 
-
-  // the previous values. eg: { "id": "9", "age": "11" }. Only works if the table has `REPLICATION FULL`.
-  old_record: object 
+  columns: Column[]
 
   // any change errors.
-  errors: null | string[]
+  errors: string[] | null
+  
+  // the new values. eg: { "id": "9", "age": "12" }.
+  record?: Record<string, unknown>
+
+  // the previous values. eg: { "id": "9", "age": "11" }. Only works if the table has `REPLICATION FULL`.
+  old_record?: Record<string, unknown>
 }
 
-type column = {
-  // any special flags for the column. eg: ["key"]
-  flags: string[] 
-  
+type Column = {
   // the column name. eg: "user_id"
-  name: string 
+  name: string
   
   // the column type. eg: "uuid"
-  type: string 
-  
+  type: string
+
+  // any special flags for the column. either ["key"] or []
+  flags?: ["key"] | []
+
   // the type modifier. eg: 4294967295
-  type_modifier: number 
+  type_modifier?: number
 }
 ``` 
 

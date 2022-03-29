@@ -1,240 +1,249 @@
-import { w3cwebsocket } from 'websocket'
 import {
-  VSN,
   CHANNEL_EVENTS,
-  TRANSPORTS,
-  SOCKET_STATES,
   DEFAULT_TIMEOUT,
+  DEFAULT_VSN,
+  SOCKET_STATES,
   WS_CLOSE_NORMAL,
   DEFAULT_HEADERS,
 } from './lib/constants'
+import {
+  Decode,
+  Encode,
+  GenericObject,
+  Message,
+  Options,
+  ReAfterMs,
+  VSN
+} from './lib/types'
+import { IMessageEvent, w3cwebsocket as WebSocket } from 'websocket'
+import { OutgoingHttpHeaders } from 'http'
 import Timer from './lib/timer'
 import RealtimeSubscription from './RealtimeSubscription'
 import Serializer from './lib/serializer'
-
-export type Options = {
-  transport?: WebSocket
-  timeout?: number
-  heartbeatIntervalMs?: number
-  longpollerTimeout?: number
-  logger?: Function
-  encode?: Function
-  decode?: Function
-  reconnectAfterMs?: Function
-  headers?: { [key: string]: string }
-  params?: { [key: string]: string }
-}
-type Message = {
-  topic: string
-  event: string
-  payload: any
-  ref: string
-}
-
-const noop = () => {}
+import { closure } from './lib/utils'
 
 export default class RealtimeClient {
-  accessToken: string | null = null
-  channels: RealtimeSubscription[] = []
-  endPoint: string = ''
-  headers?: { [key: string]: string } = DEFAULT_HEADERS
-  params?: { [key: string]: string } = {}
-  timeout: number = DEFAULT_TIMEOUT
-  transport: any = w3cwebsocket
-  heartbeatIntervalMs: number = 30000
-  longpollerTimeout: number = 20000
-  heartbeatTimer: ReturnType<typeof setInterval> | undefined = undefined
-  pendingHeartbeatRef: string | null = null
-  ref: number = 0
-  reconnectTimer: Timer
-  logger: Function = noop
-  encode: Function
-  decode: Function
-  reconnectAfterMs: Function
-  conn: WebSocket | null = null
-  sendBuffer: Function[] = []
-  serializer: Serializer = new Serializer()
-  stateChangeCallbacks: {
-    open: Function[]
-    close: Function[]
-    error: Function[]
-    message: Function[]
-  } = {
+  stateChangeCallbacks: Record<string, [string, Function][]> = {
     open: [],
     close: [],
     error: [],
     message: [],
   }
+  channels: RealtimeSubscription[] = []
+  sendBuffer: Function[] = []
+  ref: number = 0
+  timeout: number = DEFAULT_TIMEOUT
+  establishedConnections: number = 0
+  closeWasClean: boolean = false
+  encode: Encode
+  decode: Decode
+  heartbeatIntervalMs: number = 30000
+  rejoinAfterMs: ReAfterMs
+  reconnectAfterMs: ReAfterMs
+  logger: Function = () => {}
+  params: () => GenericObject
+  endPoint: string
+  headers: OutgoingHttpHeaders = DEFAULT_HEADERS
+  heartbeatTimer: ReturnType<typeof setTimeout> | null = null
+  pendingHeartbeatRef: string | null = null
+  reconnectTimer: Timer
+  conn: WebSocket | null = null
+  vsn: VSN = DEFAULT_VSN
+  accessToken: string | null = null
 
   /**
    * Initializes the Socket
    *
-   * @param endPoint The string WebSocket endpoint, ie, "ws://example.com/socket", "wss://example.com", "/socket" (inherited host & protocol)
-   * @param options.transport The Websocket Transport, for example WebSocket.
-   * @param options.timeout The default timeout in milliseconds to trigger push timeouts.
-   * @param options.params The optional params to pass when connecting.
-   * @param options.headers The optional headers to pass when connecting.
-   * @param options.heartbeatIntervalMs The millisec interval to send a heartbeat message.
-   * @param options.logger The optional function for specialized logging, ie: logger: (kind, msg, data) => { console.log(`${kind}: ${msg}`, data) }
-   * @param options.encode The function to encode outgoing messages. Defaults to JSON: (payload, callback) => callback(JSON.stringify(payload))
-   * @param options.decode The function to decode incoming messages. Defaults to Serializer's decode.
-   * @param options.longpollerTimeout The maximum timeout of a long poll AJAX request. Defaults to 20s (double the server long poll timer).
-   * @param options.reconnectAfterMs he optional function that returns the millsec reconnect interval. Defaults to stepped backoff off.
+   * For IE8 support use an ES5-shim (https://github.com/es-shims/es5-shim)
+   *
+   * @param endPoint - The string WebSocket endpoint, ie, `"ws://example.com/socket"`,
+   *                                               `"wss://example.com"`
+   *                                               `"/socket"` (inherited host & protocol)
+   * @param opts - Optional configuration
+   * @param opts.encode - The function to encode outgoing messages.
+   * Defaults to JSON encoder.
+   * @param opts.decode - The function to decode incoming messages.
+   * Defaults to JSON:
+   * ```javascript
+   * (payload, callback) => callback(JSON.parse(payload))
+   * ```
+   * @param opts.timeout - The default timeout in milliseconds to trigger push timeouts.
+   * Defaults `DEFAULT_TIMEOUT`
+   * @param opts.heartbeatIntervalMs - The millisecond interval to send a heartbeat message.
+   * @param opts.reconnectAfterMs - The optional function that returns the millisecond
+   * socket reconnect interval.
+   * Defaults to stepped backoff of:
+   * ```javascript
+   * function(tries){
+   *   return [10, 50, 100, 150, 200, 250, 500, 1000, 2000][tries - 1] || 5000
+   * }
+   * ```
+   * @param opts.rejoinAfterMs - The optional function that returns the millsecond
+   * rejoin interval for individual channels.
+   * ```javascript
+   * function(tries){
+   *   return [1000, 2000, 5000][tries - 1] || 10000
+   * }
+   * ```
+   * @param opts.logger - The optional function for specialized logging, eg:
+   * ```javascript
+   * function(kind, msg, data) {
+   *   console.log(`${kind}: ${msg}`, data)
+   * }
+   * ```
+   * @param opts.params - The optional params to pass when connecting.
+   * @param opts.vsn - The serializer's protocol version to send on connect.
+   * Defaults to DEFAULT_VSN.
+   * @param opts.headers - The optional headers to pass when connecting.
    */
-  constructor(endPoint: string, options?: Options) {
-    this.endPoint = `${endPoint}/${TRANSPORTS.websocket}`
-
-    if (options?.params) this.params = options.params
-    if (options?.headers) this.headers = { ...this.headers, ...options.headers }
-    if (options?.timeout) this.timeout = options.timeout
-    if (options?.logger) this.logger = options.logger
-    if (options?.transport) this.transport = options.transport
-    if (options?.heartbeatIntervalMs)
-      this.heartbeatIntervalMs = options.heartbeatIntervalMs
-    if (options?.longpollerTimeout)
-      this.longpollerTimeout = options.longpollerTimeout
-
-    this.reconnectAfterMs = options?.reconnectAfterMs
-      ? options.reconnectAfterMs
-      : (tries: number) => {
-          return [1000, 2000, 5000, 10000][tries - 1] || 10000
-        }
-    this.encode = options?.encode
-      ? options.encode
-      : (payload: JSON, callback: Function) => {
-          return callback(JSON.stringify(payload))
-        }
-    this.decode = options?.decode
-      ? options.decode
-      : this.serializer.decode.bind(this.serializer)
-    this.reconnectTimer = new Timer(async () => {
-      await this.disconnect()
-      this.connect()
+  constructor(endPoint: string, opts: Options = {}) {
+    if (opts.timeout) this.timeout = opts.timeout
+    if (opts.heartbeatIntervalMs)
+      this.heartbeatIntervalMs = opts.heartbeatIntervalMs
+    if (opts.logger) this.logger = opts.logger
+    if (opts.vsn) this.vsn = opts.vsn
+    this.params = closure(opts?.params || {})
+    this.endPoint = `${endPoint}/websocket`
+    this.rejoinAfterMs = (tries) => {
+      if (opts.rejoinAfterMs) {
+        return opts.rejoinAfterMs(tries)
+      } else {
+        return [1000, 2000, 5000][tries - 1] || 10000
+      }
+    }
+    this.reconnectAfterMs = (tries) => {
+      if (opts.reconnectAfterMs) {
+        return opts.reconnectAfterMs(tries)
+      } else {
+        return [10, 50, 100, 150, 200, 250, 500, 1000, 2000][tries - 1] || 5000
+      }
+    }
+    const serializer = new Serializer()
+    this.encode = opts.encode || serializer.encode.bind(serializer)
+    this.decode = opts.decode || serializer.decode.bind(serializer)
+    this.reconnectTimer = new Timer(() => {
+      this._teardown(() => this.connect())
     }, this.reconnectAfterMs)
+    this.headers = { ...this.headers, ...(opts.headers || {}) }
+  }
+
+  /**
+   * The fully qualified socket url
+   */
+  endPointURL(): string {
+    const url = new URL(this.endPoint, `https://${this.endPoint}`)
+    const protocol = url.protocol.match(/^https|^wss/) ? 'wss' : 'ws'
+    const params = new URLSearchParams({
+      ...Object.fromEntries(url.searchParams),
+      ...Object.fromEntries(new URLSearchParams(this.params())),
+    })
+    params.set('vsn', this.vsn)
+
+    return `${protocol}://${url.host}?${params}`
+  }
+
+  /**
+   * Disconnects the socket
+   *
+   * See https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent#Status_codes for valid status codes.
+   *
+   * @param callback - A callback which is called after socket is disconnected (Optional).
+   * @param code - A status code for disconnection (Optional).
+   * @param reason - A textual description of the reason to disconnect. (Optional)
+   */
+  async disconnect(
+    callback?: Function,
+    code?: number,
+    reason?: string
+  ): Promise<{ error: null | Error }> {
+    this.closeWasClean = true
+    this.reconnectTimer.reset()
+    return await this._teardown(callback, code, reason)
   }
 
   /**
    * Connects the socket.
    */
-  connect() {
+  async connect(): Promise<{ error: null | Error }> {
     if (this.conn) {
-      return
+      return Promise.resolve({ error: null })
     }
 
-    this.conn = new this.transport(this.endPointURL(), [], null, this.headers)
-    if (this.conn) {
-      // this.conn.timeout = this.longpollerTimeout // TYPE ERROR
-      this.conn.binaryType = 'arraybuffer'
-      this.conn.onopen = () => this._onConnOpen()
-      this.conn.onerror = (error) => this._onConnError(error as ErrorEvent)
-      this.conn.onmessage = (event) => this.onConnMessage(event)
-      this.conn.onclose = (event) => this._onConnClose(event)
+    this.closeWasClean = false
+    this.conn = new WebSocket(this.endPointURL(), [], '', this.headers)
+    this.conn.binaryType = 'arraybuffer'
+    this.conn.onopen = async () => {
+      this._onConnOpen()
+      return { error: null }
     }
-  }
+    this.conn.onerror = async (error) => {
+      this._onConnError(error)
+      return { error }
+    }
+    this.conn.onmessage = (event) => this._onConnMessage(event)
+    this.conn.onclose = (event) => this._onConnClose(event)
 
-  /**
-   * Disconnects the socket.
-   *
-   * @param code A numeric status code to send on disconnect.
-   * @param reason A custom reason for the disconnect.
-   */
-  disconnect(
-    code?: number,
-    reason?: string
-  ): Promise<{ error: Error | null; data: boolean }> {
-    return new Promise((resolve, _reject) => {
-      try {
-        if (this.conn) {
-          this.conn.onclose = function () {} // noop
-          if (code) {
-            this.conn.close(code, reason || '')
-          } else {
-            this.conn.close()
+    return new Promise((resolve) => {
+      ;[this.conn!.onopen, this.conn!.onerror].forEach(
+        async (statusPromise) => {
+          const status = (await statusPromise) as unknown as {
+            error: null | Error
           }
-          this.conn = null
-          // remove open handles
-          this.heartbeatTimer && clearInterval(this.heartbeatTimer)
-          this.reconnectTimer.reset()
+          resolve(status)
         }
-        resolve({ error: null, data: true })
-      } catch (error) {
-        resolve({ error: error as Error, data: false })
-      }
+      )
     })
   }
 
   /**
    * Logs the message. Override `this.logger` for specialized logging.
    */
-  log(kind: string, msg: string, data?: any) {
+  log(kind: string, msg: string, data?: unknown): void {
     this.logger(kind, msg, data)
   }
 
   /**
-   * Registers a callback for connection state change event.
+   * Registers callbacks for connection open events.
    * @param callback A function to be called when the event occurs.
-   *
-   * @example
-   *    socket.onOpen(() => console.log("Socket opened."))
+   * @example socket.onOpen(() => console.log("Socket opened."))
    */
-  onOpen(callback: Function) {
-    this.stateChangeCallbacks.open.push(callback)
+  onOpen(callback: Function): string {
+    const ref = this.makeRef()
+    this.stateChangeCallbacks.open.push([ref, callback])
+    return ref
   }
 
   /**
-   * Registers a callbacks for connection state change events.
+   * Registers callbacks for connection close events.
    * @param callback A function to be called when the event occurs.
-   *
-   * @example
-   *    socket.onOpen(() => console.log("Socket closed."))
+   * @example socket.onClose(() => console.log("Socket closed."))
    */
-  onClose(callback: Function) {
-    this.stateChangeCallbacks.close.push(callback)
+  onClose(callback: Function): string {
+    const ref = this.makeRef()
+    this.stateChangeCallbacks.close.push([ref, callback])
+    return ref
   }
 
   /**
-   * Registers a callback for connection state change events.
+   * Registers callbacks for connection error events.
    * @param callback A function to be called when the event occurs.
-   *
-   * @example
-   *    socket.onOpen((error) => console.log("An error occurred"))
+   * @example socket.onError((error) => console.log("An error occurred", error))
    */
-  onError(callback: Function) {
-    this.stateChangeCallbacks.error.push(callback)
+  onError(callback: Function): string {
+    const ref = this.makeRef()
+    this.stateChangeCallbacks.error.push([ref, callback])
+    return ref
   }
 
   /**
-   * Calls a function any time a message is received.
+   * Registers callbacks for connection message events.
    * @param callback A function to be called when the event occurs.
-   *
-   * @example
-   *    socket.onMessage((message) => console.log(message))
+   * @example socket.onMessage((message) => console.log(message))
    */
-  onMessage(callback: Function) {
-    this.stateChangeCallbacks.message.push(callback)
-  }
-
-  /**
-   * Returns the current state of the socket.
-   */
-  connectionState() {
-    switch (this.conn && this.conn.readyState) {
-      case SOCKET_STATES.connecting:
-        return 'connecting'
-      case SOCKET_STATES.open:
-        return 'open'
-      case SOCKET_STATES.closing:
-        return 'closing'
-      default:
-        return 'closed'
-    }
-  }
-
-  /**
-   * Retuns `true` is the connection is open.
-   */
-  isConnected() {
-    return this.connectionState() === 'open'
+  onMessage(callback: Function): string {
+    const ref = this.makeRef()
+    this.stateChangeCallbacks.message.push([ref, callback])
+    return ref
   }
 
   /**
@@ -243,74 +252,62 @@ export default class RealtimeClient {
    * @param channel An open subscription.
    */
   remove(channel: RealtimeSubscription) {
+    this.off(channel.stateChangeRefs)
     this.channels = this.channels.filter(
       (c: RealtimeSubscription) => c.joinRef() !== channel.joinRef()
     )
   }
 
-  channel(topic: string, chanParams = {}) {
+  /**
+   * Removes `onOpen`, `onClose`, `onError,` and `onMessage` registrations.
+   *
+   * @param {refs} - list of refs returned by calls to
+   *                 `onOpen`, `onClose`, `onError,` and `onMessage`
+   */
+  off(refs: string[]): void {
+    for (const key in this.stateChangeCallbacks) {
+      this.stateChangeCallbacks[key] = this.stateChangeCallbacks[key].filter(
+        ([ref]) => {
+          return refs.indexOf(ref) === -1
+        }
+      )
+    }
+  }
+
+  /**
+   * Initiates a new channel for the given topic
+   */
+  channel(
+    topic: string,
+    chanParams: { [key: string]: any } = {}
+  ): RealtimeSubscription {
     let chan = new RealtimeSubscription(topic, chanParams, this)
     this.channels.push(chan)
     return chan
   }
 
   push(data: Message) {
-    let { topic, event, payload, ref } = data
-    let callback = () => {
-      this.encode(data, (result: any) => {
-        this.conn?.send(result)
-      })
-    }
-    this.log('push', `${topic} ${event} (${ref})`, payload)
+    let { topic, event, payload, ref, join_ref } = data
+    this.log('push', `${topic} ${event} (${join_ref}, ${ref})`, payload)
+
     if (this.isConnected()) {
-      callback()
-    } else {
-      this.sendBuffer.push(callback)
-    }
-  }
-
-  onConnMessage(rawMessage: any) {
-    this.decode(rawMessage.data, (msg: Message) => {
-      let { topic, event, payload, ref } = msg
-
-      if (
-        (ref && ref === this.pendingHeartbeatRef) ||
-        event === payload?.type
-      ) {
-        this.pendingHeartbeatRef = null
-      }
-
-      this.log(
-        'receive',
-        `${payload.status || ''} ${topic} ${event} ${
-          (ref && '(' + ref + ')') || ''
-        }`,
-        payload
+      this.encode(data, (result: ArrayBuffer | string) =>
+        this.conn?.send(result)
       )
-      this.channels
-        .filter((channel: RealtimeSubscription) => channel.isMember(topic))
-        .forEach((channel: RealtimeSubscription) =>
-          channel.trigger(event, payload, ref)
+    } else {
+      this.sendBuffer.push(() =>
+        this.encode(data, (result: ArrayBuffer | string) =>
+          this.conn?.send(result)
         )
-      this.stateChangeCallbacks.message.forEach((callback) => callback(msg))
-    })
-  }
-
-  /**
-   * Returns the URL of the websocket.
-   */
-  endPointURL() {
-    return this._appendParams(
-      this.endPoint,
-      Object.assign({}, this.params, { vsn: VSN })
-    )
+      )
+    }
   }
 
   /**
    * Return the next message ref, accounting for overflows
    */
-  makeRef() {
-    let newRef = this.ref + 1
+  makeRef(): string {
+    const newRef = this.ref + 1
     if (newRef === this.ref) {
       this.ref = 0
     } else {
@@ -325,20 +322,19 @@ export default class RealtimeClient {
    *
    * @param token A JWT string.
    */
-  setAuth(token: string | null) {
+  setAuth(token: string | null): void {
     this.accessToken = token
 
-    try {
-      this.channels.forEach((channel) => {
-        token && channel.updateJoinPayload({ user_token: token })
+    this.push({
+      topic: 'set_token',
+      event: CHANNEL_EVENTS.access_token,
+      payload: { access_token: token },
+      ref: this.ref.toString()
+    })
 
-        if (channel.joinedOnce && channel.isJoined()) {
-          channel.push(CHANNEL_EVENTS.access_token, { access_token: token })
-        }
-      })
-    } catch (error) {
-      console.log('setAuth error', error)
-    }
+    this.channels.forEach((channel) => {
+      channel.updateJoinPayload({ user_token: token })
+    })
   }
 
   leaveOpenTopic(topic: string): void {
@@ -351,46 +347,64 @@ export default class RealtimeClient {
     }
   }
 
-  private _onConnOpen() {
+  /**
+   * Retuns `true` is the connection is open.
+   */
+  isConnected(): boolean {
+    return this._connectionState() === 'open'
+  }
+
+  private _onConnOpen(): void {
     this.log('transport', `connected to ${this.endPointURL()}`)
+    this.closeWasClean = false
+    this.establishedConnections++
     this._flushSendBuffer()
     this.reconnectTimer.reset()
-    this.heartbeatTimer && clearInterval(this.heartbeatTimer)
-    this.heartbeatTimer = setInterval(
-      () => this._sendHeartbeat(),
-      this.heartbeatIntervalMs
-    )
-    this.stateChangeCallbacks.open.forEach((callback) => callback())!
+    this._resetHeartbeat()
+    this.stateChangeCallbacks.open.forEach(([_, callback]) => callback())
   }
 
-  private _onConnClose(event: any) {
-    this.log('transport', 'close', event)
-    this._triggerChanError()
-    this.heartbeatTimer && clearInterval(this.heartbeatTimer)
-    this.reconnectTimer.scheduleTimeout()
-    this.stateChangeCallbacks.close.forEach((callback) => callback(event))
-  }
-
-  private _onConnError(error: ErrorEvent) {
-    this.log('transport', error.message)
-    this._triggerChanError()
-    this.stateChangeCallbacks.error.forEach((callback) => callback(error))
-  }
-
-  private _triggerChanError() {
-    this.channels.forEach((channel: RealtimeSubscription) =>
-      channel.trigger(CHANNEL_EVENTS.error)
-    )
-  }
-
-  private _appendParams(url: string, params: { [key: string]: string }) {
-    if (Object.keys(params).length === 0) {
-      return url
+  private _heartbeatTimeout() {
+    if (this.pendingHeartbeatRef) {
+      this.pendingHeartbeatRef = null
+      this.log(
+        'transport',
+        'heartbeat timeout. Attempting to re-establish connection'
+      )
+      this._abnormalClose('heartbeat timeout')
     }
-    const prefix = url.match(/\?/) ? '&' : '?'
-    const query = new URLSearchParams(params)
+  }
 
-    return `${url}${prefix}${query}`
+  private _onConnMessage(rawMessage: IMessageEvent): void {
+    this.decode(rawMessage.data, (msg: Message) => {
+      const { topic, event, payload, ref, join_ref } = msg
+
+      if (ref && ref === this.pendingHeartbeatRef) {
+        this.heartbeatTimer && clearTimeout(this.heartbeatTimer)
+        this.pendingHeartbeatRef = null
+        setTimeout(() => this._sendHeartbeat(), this.heartbeatIntervalMs)
+      } else if (event === payload?.type) {
+        this._resetHeartbeat()
+      }
+
+      this.log(
+        'receive',
+        `${payload.status || ''} ${topic} ${event} ${
+          (ref && '(' + ref + ')') || ''
+        }`,
+        payload
+      )
+
+      this.channels.forEach((channel) => {
+        if (channel.isMember(topic, event, payload, join_ref)) {
+          channel.trigger(event, payload, ref, join_ref)
+        }
+      })
+
+      this.stateChangeCallbacks.message.forEach(([_, callback]) =>
+        callback(msg)
+      )
+    })
   }
 
   private _flushSendBuffer() {
@@ -400,17 +414,127 @@ export default class RealtimeClient {
     }
   }
 
-  private _sendHeartbeat() {
-    if (!this.isConnected()) {
+  private _resetHeartbeat() {
+    if (this.conn) {
       return
     }
-    if (this.pendingHeartbeatRef) {
-      this.pendingHeartbeatRef = null
-      this.log(
-        'transport',
-        'heartbeat timeout. Attempting to re-establish connection'
-      )
-      this.conn?.close(WS_CLOSE_NORMAL, 'hearbeat timeout')
+    this.pendingHeartbeatRef = null
+    this.heartbeatTimer && clearTimeout(this.heartbeatTimer)
+    setTimeout(() => this._sendHeartbeat(), this.heartbeatIntervalMs)
+  }
+
+  private async _teardown(
+    callback?: Function,
+    code?: number,
+    reason?: string
+  ): Promise<{ error: null | Error }> {
+    if (!this.conn) {
+      return await Promise.resolve(callback ? callback() : { error: null }).catch(error => ({ error }))
+    }
+
+    return await this._waitForBufferDone(async () => {
+      if (this.conn) {
+        code ? this.conn.close(code, reason || '') : this.conn.close()
+        return Promise.resolve({ error: null })
+      }
+
+      return await this._waitForSocketClosed(async () => {
+        if (this.conn) {
+          this.conn.onclose = () => {} // noop
+          this.conn = null
+        }
+
+        return await Promise.resolve(callback ? callback() : { error: null }).catch((error) => ({ error }))
+      })
+    })
+  }
+
+  private async _waitForBufferDone(
+    callback: Function,
+    tries: number = 1
+  ): Promise<{ error: null | Error }> {
+    if (tries === 5 || !this.conn || !this.conn.bufferedAmount) {
+      return Promise.resolve(callback())
+        .then(() => ({ error: null }))
+        .catch((error) => ({ error }))
+    }
+
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(this._waitForBufferDone(callback, tries + 1))
+      }, 150 * tries)
+    })
+  }
+
+  private async _waitForSocketClosed(
+    callback: Function,
+    tries: number = 1
+  ): Promise<{ error: null | Error }> {
+    if (
+      tries === 5 ||
+      !this.conn ||
+      this.conn.readyState === SOCKET_STATES.closed
+    ) {
+      return Promise.resolve(callback())
+        .then(() => ({ error: null }))
+        .catch((error) => ({ error }))
+    }
+
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(this._waitForSocketClosed(callback, tries + 1))
+      }, 150 * tries)
+    })
+  }
+
+  private _onConnClose(event: CloseEventInit): void {
+    const closeCode = event && event.code
+    this.log('transport', 'close', event)
+    this._triggerChanError()
+    this.heartbeatTimer && clearTimeout(this.heartbeatTimer)
+    if (!this.closeWasClean && closeCode !== 1000) {
+      this.reconnectTimer.scheduleTimeout()
+    }
+    this.stateChangeCallbacks.close.forEach(([_, callback]) => callback(event))
+  }
+
+  private _onConnError(error: Error): void {
+    this.log('transport', `${error}`)
+    const establishedBefore = this.establishedConnections
+    this.stateChangeCallbacks.error.forEach(([, callback]) => {
+      callback(error, WebSocket, establishedBefore)
+    })
+    if (establishedBefore > 0) {
+      this._triggerChanError()
+    }
+  }
+
+  private _triggerChanError(): void {
+    this.channels.forEach((channel: RealtimeSubscription) => {
+      if (!(channel.isErrored() || channel.isLeaving() || channel.isClosed())) {
+        channel.trigger(CHANNEL_EVENTS.error)
+      }
+    })
+  }
+
+  /**
+   * Returns the current state of the socket.
+   */
+  private _connectionState(): string {
+    switch (this.conn && this.conn.readyState) {
+      case SOCKET_STATES.connecting:
+        return 'connecting'
+      case SOCKET_STATES.open:
+        return 'open'
+      case SOCKET_STATES.closing:
+        return 'closing'
+      default:
+        return 'closed'
+    }
+  }
+
+  private _sendHeartbeat() {
+    if (this.pendingHeartbeatRef && !this.isConnected()) {
       return
     }
     this.pendingHeartbeatRef = this.makeRef()
@@ -420,6 +544,17 @@ export default class RealtimeClient {
       payload: {},
       ref: this.pendingHeartbeatRef,
     })
+    this.heartbeatTimer = setTimeout(
+      () => this._heartbeatTimeout(),
+      this.heartbeatIntervalMs
+    )
     this.setAuth(this.accessToken)
+  }
+
+  private _abnormalClose(reason: string): void {
+    this.closeWasClean = false
+    if (this.isConnected()) {
+      this.conn && this.conn.close(WS_CLOSE_NORMAL, reason)
+    }
   }
 }

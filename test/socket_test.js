@@ -34,7 +34,6 @@ describe('constructor', () => {
     })
     assert.equal(socket.transport, W3CWebSocket)
     assert.equal(socket.timeout, 10000)
-    assert.equal(socket.longpollerTimeout, 20000)
     assert.equal(socket.heartbeatIntervalMs, 30000)
     assert.equal(typeof socket.logger, 'function')
     assert.equal(typeof socket.reconnectAfterMs, 'function')
@@ -47,7 +46,6 @@ describe('constructor', () => {
 
     socket = new RealtimeClient('wss://example.com/socket', {
       timeout: 40000,
-      longpollerTimeout: 50000,
       heartbeatIntervalMs: 60000,
       transport: customTransport,
       logger: customLogger,
@@ -56,7 +54,6 @@ describe('constructor', () => {
     })
 
     assert.equal(socket.timeout, 40000)
-    assert.equal(socket.longpollerTimeout, 50000)
     assert.equal(socket.heartbeatIntervalMs, 60000)
     assert.equal(socket.transport, customTransport)
     assert.equal(socket.logger, customLogger)
