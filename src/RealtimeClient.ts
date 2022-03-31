@@ -32,6 +32,12 @@ type Message = {
   ref: string
 }
 
+type ChannelParams = {
+  isNewVersion?: boolean
+  selfBroadcast?: boolean
+  [key: string]: any
+}
+
 const noop = () => {}
 
 export default class RealtimeClient {
@@ -250,15 +256,15 @@ export default class RealtimeClient {
     )
   }
 
-  channel(
-    topic: string,
-    chanParams: { [key: string]: any } = { isNewVersion: false }
-  ) {
-    const { isNewVersion, ...params } = chanParams
+  channel(topic: string, chanParams: ChannelParams = { isNewVersion: false }) {
+    const { isNewVersion, selfBroadcast, ...params } = chanParams
+    if (selfBroadcast) {
+      params.self_broadcast = selfBroadcast
+    }
 
     const chan = isNewVersion
-      ? new RealtimeChannel(topic, { ...params }, this)
-      : new RealtimeSubscription(topic, { ...params }, this)
+      ? new RealtimeChannel(topic, params, this)
+      : new RealtimeSubscription(topic, params, this)
 
     if (chan instanceof RealtimeChannel) {
       chan.presence.onJoin((key, currentPresences, newPresences) => {
