@@ -116,7 +116,11 @@ export default class RealtimeChannel {
     this.on(CHANNEL_EVENTS.error, {}, (reason: string) => callback(reason))
   }
 
-  on(type: string, eventFilter?: { [key: string]: string }, callback?: Function) {
+  on(
+    type: string,
+    eventFilter?: { [key: string]: string },
+    callback?: Function
+  ) {
     this.bindings.push({
       type,
       eventFilter: eventFilter ?? {},
@@ -270,12 +274,6 @@ export default class RealtimeChannel {
       return false
     }
 
-    for (const k in obj1) {
-      if (obj1[k] !== obj2[k]) {
-        return false
-      }
-    }
-
-    return true
+    return JSON.stringify(obj1) === JSON.stringify(obj2)
   }
 }
