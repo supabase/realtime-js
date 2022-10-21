@@ -1,3 +1,5 @@
+# Supabase Realtime Presence API Sample Program
+
 This is an example program for Supabase Realtime Presence APIs. 
 User get authenticated using Supabase Auth API. Once Logged-in you can see which users are 'present' and viewing the page. 
 
@@ -34,9 +36,14 @@ The `anon` key is your client-side API key. It allows "anonymous access" to your
 
 ### 5. Create a .env.local file
 
-Create a .env.local file and add following re
-NEXT_PUBLIC_SUPABASE_URL=<<insert-your-db-url-here>>
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<<insert-your-anon-key-here>>
+Create a .env.local file and add following environment variables.
+
+
+
+`NEXT_PUBLIC_SUPABASE_URL=<<insert-your-db-url-here>>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<<insert-your-anon-key-here>>`
+
+
 
 ### 5. Now run the development server!
 Now run 
@@ -50,19 +57,20 @@ yarn dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
 
 
 ## How to Test?
 
-You will see auth login/signup screen. 
+When you visit http://localhost:3000, you will be redirected to auth login/signup screen.
 
 Signup if you haven't and then login. 
 
-You will see the current list of users on the screen.
+You will see your email listed on the page.
 
-You can open multiple windows and login using different logins credentials. 
-You will see the list contains all the users from the window. 
+Open another browser window. And sign-in as another user. 
+
+As you login from other browser window, you will see list of current users updated. 
+
 
 ## Deployment
 Since this is next.js application, simplest method to  deploy this repository is on Vercel. 
