@@ -166,11 +166,15 @@ export default class RealtimeClient {
   removeChannel(
     channel: RealtimeChannel
   ): Promise<RealtimeRemoveChannelResponse> {
-    return channel.unsubscribe().then((status) => {
-      if (this.channels.length === 0) {
-        this.disconnect()
-      }
-      return status
+    return Promise.all(
+      this.channels.filter((item_channel)=>{
+        if(channel.topic === `realtime:${item_channel}`){
+          return channel.unsubscribe()
+        }
+      })
+    ).then((value) => {
+      this.disconnect()
+      return value
     })
   }
 
