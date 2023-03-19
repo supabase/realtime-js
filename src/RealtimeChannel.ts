@@ -3,10 +3,12 @@ import Push from './lib/push'
 import type RealtimeClient from './RealtimeClient'
 import Timer from './lib/timer'
 import RealtimePresence, {
-  type RealtimePresenceJoinPayload,
-  type RealtimePresenceLeavePayload,
-  type RealtimePresenceState,
   REALTIME_PRESENCE_LISTEN_EVENTS,
+} from './RealtimePresence'
+import type {
+  RealtimePresenceJoinPayload,
+  RealtimePresenceLeavePayload,
+  RealtimePresenceState,
 } from './RealtimePresence'
 import * as Transformers from './lib/transformers'
 
