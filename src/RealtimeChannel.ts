@@ -1,11 +1,11 @@
 import { CHANNEL_EVENTS, CHANNEL_STATES } from './lib/constants'
 import Push from './lib/push'
-import RealtimeClient from './RealtimeClient'
+import type RealtimeClient from './RealtimeClient'
 import Timer from './lib/timer'
 import RealtimePresence, {
-  RealtimePresenceJoinPayload,
-  RealtimePresenceLeavePayload,
-  RealtimePresenceState,
+  type RealtimePresenceJoinPayload,
+  type RealtimePresenceLeavePayload,
+  type RealtimePresenceState,
   REALTIME_PRESENCE_LISTEN_EVENTS,
 } from './RealtimePresence'
 import * as Transformers from './lib/transformers'

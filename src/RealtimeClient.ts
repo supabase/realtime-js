@@ -11,7 +11,7 @@ import {
 } from './lib/constants'
 import Timer from './lib/timer'
 import Serializer from './lib/serializer'
-import RealtimeChannel, { RealtimeChannelOptions } from './RealtimeChannel'
+import RealtimeChannel, { type RealtimeChannelOptions } from './RealtimeChannel'
 
 export type RealtimeClientOptions = {
   transport?: WebSocket
