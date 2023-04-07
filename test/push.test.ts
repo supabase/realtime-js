@@ -15,7 +15,11 @@ describe('constructor', () => {
   })
 
   it('sets defaults', () => {
-    channel = new RealtimeChannel('test_topic', {}, socket)
+    channel = new RealtimeChannel(
+      'test_topic',
+      { config: { broadcast: {}, presence: { key: 'test ' } } },
+      socket
+    )
     push = new Push(channel, 'test_event')
 
     assert.strictEqual(push.channel, channel)
@@ -36,7 +40,11 @@ describe('updatePayload', () => {
   })
 
   it('updates push payload', () => {
-    channel = new RealtimeChannel('test_topic', {}, socket)
+    channel = new RealtimeChannel(
+      'test_topic',
+      { config: { broadcast: {}, presence: { key: 'test ' } } },
+      socket
+    )
     push = new Push(channel, 'test_event', { test: 'test' })
 
     assert.deepEqual(push.payload, { test: 'test' })

@@ -3,7 +3,6 @@ import { Server as WebSocketServer, WebSocket } from 'mock-socket'
 import sinon from 'sinon'
 import { w3cwebsocket as W3CWebSocket } from 'websocket'
 import { RealtimeClient } from '../dist/main'
-import { CONNECTION_STATE } from '../dist/main/lib/constants'
 
 let socket
 
@@ -17,7 +16,7 @@ describe('constructor', () => {
   })
 
   after(() => {
-    window.XMLHttpRequest = null
+    window.XMLHttpRequest = null as any
   })
 
   it('sets defaults', () => {
@@ -41,7 +40,7 @@ describe('constructor', () => {
   })
 
   it('overrides some defaults with options', () => {
-    const customTransport = function transport() {}
+    const customTransport = {} as WebSocket
     const customLogger = function logger() {}
     const customReconnect = function reconnect() {}
 
@@ -71,13 +70,13 @@ describe('constructor', () => {
 
     after((done) => {
       mockServer.stop(() => {
-        window.WebSocket = null
+        window.WebSocket = null as any
         done()
       })
     })
-  
+
     afterEach(() => {
-    socket.disconnect()
+      socket.disconnect()
     })
 
     it('defaults to Websocket transport if available', () => {
@@ -101,7 +100,9 @@ describe('endpointURL', () => {
   })
 
   it('returns endpoint with parameters', () => {
-    socket = new RealtimeClient('ws://example.org/chat', { params: { foo: 'bar' } })
+    socket = new RealtimeClient('ws://example.org/chat', {
+      params: { foo: 'bar' },
+    })
     assert.equal(
       socket._endPointURL(),
       'ws://example.org/chat/websocket?foo=bar&vsn=1.0.0'
@@ -128,7 +129,7 @@ describe('connect with WebSocket', () => {
 
   after((done) => {
     mockServer.stop(() => {
-      window.WebSocket = null
+      window.WebSocket = null as any
       done()
     })
   })
@@ -169,7 +170,7 @@ describe('disconnect', () => {
 
   after((done) => {
     mockServer.stop(() => {
-      window.WebSocket = null
+      window.WebSocket = null as any
       done()
     })
   })
@@ -194,7 +195,7 @@ describe('disconnect', () => {
     socket.connect()
     socket.disconnect()
     count++
-    
+
     assert.equal(count, 1)
   })
 
@@ -288,7 +289,10 @@ describe('channel', () => {
 
     assert.deepStrictEqual(channel.socket, socket)
     assert.equal(channel.topic, 'realtime:topic')
-    assert.deepEqual(channel.params, { config: { broadcast: { ack: false, self: false }, presence: { key: '' } }, one: 'two' })
+    assert.deepEqual(channel.params, {
+      config: { broadcast: { ack: false, self: false }, presence: { key: '' } },
+      one: 'two',
+    })
   })
 
   it('adds channel to sockets channels list', () => {
@@ -406,7 +410,7 @@ describe('push', () => {
   })
 
   after(() => {
-    window.XMLHttpRequest = null
+    window.XMLHttpRequest = null as any
   })
 
   beforeEach(() => {
@@ -506,15 +510,21 @@ describe('setAuth', () => {
     socket.setAuth('token123')
 
     assert.strictEqual(socket.accessToken, 'token123')
-    assert.ok(pushStub1.calledWith('access_token', {
-      access_token: 'token123',
-    }))
-    assert.ok(!pushStub2.calledWith('access_token', {
-      access_token: 'token123',
-    }))
-    assert.ok(pushStub3.calledWith('access_token', {
-      access_token: 'token123',
-    }))
+    assert.ok(
+      pushStub1.calledWith('access_token', {
+        access_token: 'token123',
+      })
+    )
+    assert.ok(
+      !pushStub2.calledWith('access_token', {
+        access_token: 'token123',
+      })
+    )
+    assert.ok(
+      pushStub3.calledWith('access_token', {
+        access_token: 'token123',
+      })
+    )
     assert.ok(payloadStub1.calledWith({ access_token: 'token123' }))
     assert.ok(payloadStub2.calledWith({ access_token: 'token123' }))
     assert.ok(payloadStub3.calledWith({ access_token: 'token123' }))
@@ -527,7 +537,7 @@ describe('sendHeartbeat', () => {
   })
 
   after(() => {
-    window.XMLHttpRequest = null
+    window.XMLHttpRequest = null as any
   })
 
   beforeEach(() => {
@@ -582,7 +592,7 @@ describe('flushSendBuffer', () => {
   })
 
   after(() => {
-    window.XMLHttpRequest = null
+    window.XMLHttpRequest = null as any
   })
 
   beforeEach(() => {
@@ -630,7 +640,7 @@ describe('_onConnOpen', () => {
 
   after((done) => {
     mockServer.stop(() => {
-      window.WebSocket = null
+      window.WebSocket = null as any
       done()
     })
   })
@@ -676,7 +686,7 @@ describe('_onConnClose', () => {
 
   after((done) => {
     mockServer.stop(() => {
-      window.WebSocket = null
+      window.WebSocket = null as any
       done()
     })
   })
@@ -719,7 +729,7 @@ describe('_onConnError', () => {
 
   after((done) => {
     mockServer.stop(() => {
-      window.WebSocket = null
+      window.WebSocket = null as any
       done()
     })
   })
@@ -754,7 +764,7 @@ describe('onConnMessage', () => {
 
   after((done) => {
     mockServer.stop(() => {
-      window.WebSocket = null
+      window.WebSocket = null as any
       done()
     })
   })
@@ -806,9 +816,9 @@ describe('custom encoder and decoder', () => {
   })
 
   it('allows custom encoding when using WebSocket transport', () => {
-    let encoder = (payload, callback) => callback('encode works')
+    let encoder = (_payload, callback) => callback('encode works')
     socket = new RealtimeClient('wss://example.com/socket', {
-      transport: WebSocket,
+      transport: {} as WebSocket,
       encode: encoder,
     })
 
@@ -828,26 +838,26 @@ describe('custom encoder and decoder', () => {
 
   it('decodes ArrayBuffer by default', () => {
     socket = new RealtimeClient('wss://example.com/socket')
-    const buffer = new Uint8Array([2, 20, 6, 114, 101, 97, 108, 116, 105,
-      109, 101, 58, 112, 117, 98, 108, 105, 99, 58, 116, 101, 115, 116, 73,
-      78, 83, 69, 82, 84, 123, 34, 102, 111, 111, 34, 58, 34, 98, 97, 114, 34, 125]).buffer
+    const buffer = new Uint8Array([
+      2, 20, 6, 114, 101, 97, 108, 116, 105, 109, 101, 58, 112, 117, 98, 108,
+      105, 99, 58, 116, 101, 115, 116, 73, 78, 83, 69, 82, 84, 123, 34, 102,
+      111, 111, 34, 58, 34, 98, 97, 114, 34, 125,
+    ]).buffer
 
-    socket.decode(buffer, decoded => {
-      assert.deepStrictEqual(
-        decoded, {
-          ref: null,
-          topic: "realtime:public:test",
-          event: "INSERT",
-          payload: { foo: 'bar' }
-        }
-      )
+    socket.decode(buffer, (decoded) => {
+      assert.deepStrictEqual(decoded, {
+        ref: null,
+        topic: 'realtime:public:test',
+        event: 'INSERT',
+        payload: { foo: 'bar' },
+      })
     })
   })
 
   it('allows custom decoding when using WebSocket transport', () => {
-    let decoder = (payload, callback) => callback('decode works')
+    let decoder = (_payload, callback) => callback('decode works')
     socket = new RealtimeClient('wss://example.com/socket', {
-      transport: WebSocket,
+      transport: {} as WebSocket,
       decode: decoder,
     })
 

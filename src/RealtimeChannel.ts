@@ -240,7 +240,12 @@ export default class RealtimeChannel {
             } else {
               const clientPostgresBindings = this.bindings.postgres_changes
               const bindingsLen = clientPostgresBindings?.length ?? 0
-              const newPostgresBindings = []
+              const newPostgresBindings: {
+                type: string
+                filter: { [key: string]: any }
+                callback: Function
+                id?: string
+              }[] = []
 
               for (let i = 0; i < bindingsLen; i++) {
                 const clientPostgresBinding = clientPostgresBindings[i]
