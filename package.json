@@ -29,7 +29,7 @@
     "build": "run-s clean format build:*",
     "build:main": "tsc -p tsconfig.json",
     "build:module": "tsc -p tsconfig.module.json",
-    "mocha": "node -r esm node_modules/.bin/mocha ./test/**/*.js -r jsdom-global/register",
+    "mocha": "mocha ./test/**/*.ts",
     "test": "run-s clean build mocha",
     "docs": "typedoc src/index.ts --out docs/v2",
     "docs:json": "typedoc --json docs/v2/spec.json --excludeExternals src/index.ts"
@@ -37,10 +37,12 @@
   "dependencies": {
     "@types/phoenix": "^1.5.4",
     "@types/websocket": "^1.0.3",
+    "ts-node": "^10.9.1",
     "websocket": "^1.0.34"
   },
   "devDependencies": {
     "@babel/runtime": "^7.9.2",
+    "@types/mocha": "^10.0.1",
     "babel-preset-env": "^1.7.0",
     "babel-register": "^6.26.0",
     "eslint": "^7.0.0",
