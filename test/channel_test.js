@@ -1202,4 +1202,12 @@ describe('trigger', () => {
       )
     )
   })
+
+  it('sets apikey as initial accessToken', () => {
+    socket = new RealtimeClient('ws://example.com/socket', {
+      timeout: defaultTimeout,
+      apikey: '123',
+    })
+    assert.equal(socket.accessToken, '123')
+  })
 })
