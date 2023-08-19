@@ -102,6 +102,9 @@ export default class RealtimeClient {
     if (eventsPerSecond)
       this.eventsPerSecondLimitMs = Math.floor(1000 / eventsPerSecond)
 
+    const accessToken = options?.params?.apikey
+    if(accessToken) this.accessToken = accessToken
+
     this.reconnectAfterMs = options?.reconnectAfterMs
       ? options.reconnectAfterMs
       : (tries: number) => {
