@@ -104,7 +104,6 @@ export default class RealtimeClient {
 
     const accessToken = options?.params?.apikey
     if (accessToken) this.accessToken = accessToken
-    console.log({ accessToken })
 
     this.reconnectAfterMs = options?.reconnectAfterMs
       ? options.reconnectAfterMs
