@@ -401,7 +401,7 @@ export default class RealtimeChannel {
     callback: (payload: {
       type: `${REALTIME_LISTEN_TYPES.BROADCAST}`
       event: string
-      [key: string]: any
+      payload: T
     }) => void
   ): RealtimeChannel
   on(
