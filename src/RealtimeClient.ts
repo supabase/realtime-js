@@ -1,4 +1,3 @@
-import { w3cwebsocket } from 'websocket'
 import {
   VSN,
   CHANNEL_EVENTS,
@@ -42,6 +41,9 @@ export type RealtimeRemoveChannelResponse = 'ok' | 'timed out' | 'error'
 
 const noop = () => {}
 
+const WebSocketVariant =
+  typeof WebSocket !== 'undefined' ? WebSocket : require('ws')
+
 export default class RealtimeClient {
   accessToken: string | null = null
   channels: RealtimeChannel[] = []
@@ -49,7 +51,7 @@ export default class RealtimeClient {
   headers?: { [key: string]: string } = DEFAULT_HEADERS
   params?: { [key: string]: string } = {}
   timeout: number = DEFAULT_TIMEOUT
-  transport: any = w3cwebsocket
+  transport: any = WebSocketVariant
   heartbeatIntervalMs: number = 30000
   heartbeatTimer: ReturnType<typeof setInterval> | undefined = undefined
   pendingHeartbeatRef: string | null = null
@@ -132,7 +134,7 @@ export default class RealtimeClient {
       return
     }
 
-    this.conn = new this.transport(this._endPointURL(), [], null, this.headers)
+    this.conn = new this.transport(this._endPointURL())
 
     if (this.conn) {
       this.conn.binaryType = 'arraybuffer'
