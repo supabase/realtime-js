@@ -134,7 +134,11 @@ export default class RealtimeClient {
       return
     }
 
-    this.conn = new this.transport(this._endPointURL())
+    // We can ride on the fact that the browser WebSocket API only takes 2 params, and doesn't take headers.
+    // We can pass the options object as the third param, in which case it will be grabbed by 'ws' and ignored by browsers.
+    this.conn = new this.transport(this._endPointURL(), undefined, {
+      headers: this.headers,
+    })
 
     if (this.conn) {
       this.conn.binaryType = 'arraybuffer'
