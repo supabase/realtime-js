@@ -13,10 +13,12 @@ import Serializer from './lib/serializer'
 import RealtimeChannel from './RealtimeChannel'
 import type { RealtimeChannelOptions } from './RealtimeChannel'
 
+import type { WebSocket as WSWebSocket } from 'ws'
+
 type Fetch = typeof fetch
 
 export type RealtimeClientOptions = {
-  transport?: WebSocket
+  transport?: WebSocketLikeConstructor
   timeout?: number
   heartbeatIntervalMs?: number
   logger?: Function
@@ -41,7 +43,23 @@ export type RealtimeRemoveChannelResponse = 'ok' | 'timed out' | 'error'
 
 const noop = () => {}
 
-const WebSocketVariant =
+interface WebSocketLikeConstructor {
+  new (
+    address: string | URL,
+    _ignored: any,
+    options?: { headers: Object | undefined }
+  ): WebSocketLike
+}
+
+type WebSocketLike = WebSocket | WSWebSocket
+
+interface WebSocketLikeError {
+  error: any
+  message: string
+  type: string
+}
+
+const WebSocketVariant: WebSocketLikeConstructor =
   typeof WebSocket !== 'undefined' ? WebSocket : require('ws')
 
 export default class RealtimeClient {
@@ -51,7 +69,7 @@ export default class RealtimeClient {
   headers?: { [key: string]: string } = DEFAULT_HEADERS
   params?: { [key: string]: string } = {}
   timeout: number = DEFAULT_TIMEOUT
-  transport: any = WebSocketVariant
+  transport: WebSocketLikeConstructor = WebSocketVariant
   heartbeatIntervalMs: number = 30000
   heartbeatTimer: ReturnType<typeof setInterval> | undefined = undefined
   pendingHeartbeatRef: string | null = null
@@ -61,7 +79,7 @@ export default class RealtimeClient {
   encode: Function
   decode: Function
   reconnectAfterMs: Function
-  conn: WebSocket | null = null
+  conn: WebSocketLike | null = null
   sendBuffer: Function[] = []
   serializer: Serializer = new Serializer()
   stateChangeCallbacks: {
@@ -143,9 +161,10 @@ export default class RealtimeClient {
     if (this.conn) {
       this.conn.binaryType = 'arraybuffer'
       this.conn.onopen = () => this._onConnOpen()
-      this.conn.onerror = (error) => this._onConnError(error as ErrorEvent)
-      this.conn.onmessage = (event) => this._onConnMessage(event)
-      this.conn.onclose = (event) => this._onConnClose(event)
+      this.conn.onerror = (error: WebSocketLikeError) =>
+        this._onConnError(error as WebSocketLikeError)
+      this.conn.onmessage = (event: any) => this._onConnMessage(event)
+      this.conn.onclose = (event: any) => this._onConnClose(event)
     }
   }
 
@@ -407,7 +426,7 @@ export default class RealtimeClient {
   }
 
   /** @internal */
-  private _onConnError(error: ErrorEvent) {
+  private _onConnError(error: WebSocketLikeError) {
     this.log('transport', error.message)
     this._triggerChanError()
     this.stateChangeCallbacks.error.forEach((callback) => callback(error))
