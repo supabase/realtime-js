@@ -46,7 +46,7 @@ const noop = () => {}
 interface WebSocketLikeConstructor {
   new (
     address: string | URL,
-    _ignored: any,
+    _ignored?: any,
     options?: { headers: Object | undefined }
   ): WebSocketLike
 }
@@ -59,8 +59,11 @@ interface WebSocketLikeError {
   type: string
 }
 
-const WebSocketVariant: WebSocketLikeConstructor =
-  typeof WebSocket !== 'undefined' ? WebSocket : require('ws')
+const NATIVE_WEBSOCKET_AVAILABLE = typeof WebSocket !== 'undefined'
+
+const WebSocketVariant: WebSocketLikeConstructor = NATIVE_WEBSOCKET_AVAILABLE
+  ? WebSocket
+  : require('ws')
 
 export default class RealtimeClient {
   accessToken: string | null = null
@@ -152,11 +155,13 @@ export default class RealtimeClient {
       return
     }
 
-    // We can ride on the fact that the browser WebSocket API only takes 2 params, and doesn't take headers.
-    // We can pass the options object as the third param, in which case it will be grabbed by 'ws' and ignored by browsers.
-    this.conn = new this.transport(this._endPointURL(), undefined, {
-      headers: this.headers,
-    })
+    if (NATIVE_WEBSOCKET_AVAILABLE) {
+      this.conn = new this.transport(this._endPointURL())
+    } else {
+      this.conn = new this.transport(this._endPointURL(), undefined, {
+        headers: this.headers,
+      })
+    }
 
     if (this.conn) {
       this.conn.binaryType = 'arraybuffer'
