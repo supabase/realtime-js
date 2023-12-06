@@ -61,9 +61,15 @@ interface WebSocketLikeError {
 
 const NATIVE_WEBSOCKET_AVAILABLE = typeof WebSocket !== 'undefined'
 
-const WebSocketVariant: WebSocketLikeConstructor = NATIVE_WEBSOCKET_AVAILABLE
-  ? WebSocket
-  : require('ws')
+let WebSocketVariant: WebSocketLikeConstructor
+
+if (NATIVE_WEBSOCKET_AVAILABLE) {
+  WebSocketVariant = WebSocket
+} else {
+  import('ws').then(({ default: WSWebSocket }) => {
+    WebSocketVariant = WSWebSocket
+  })
+}
 
 export default class RealtimeClient {
   accessToken: string | null = null
