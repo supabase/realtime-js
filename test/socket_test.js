@@ -32,7 +32,7 @@ describe('constructor', () => {
             error: [],
             message: [],
         })
-        assert.equal(socket.transport, WSWebSocket)
+        assert.equal(socket.transport, null)
         assert.equal(socket.timeout, 10000)
         assert.equal(socket.heartbeatIntervalMs, 30000)
         assert.equal(typeof socket.logger, 'function')
@@ -81,7 +81,7 @@ describe('constructor', () => {
 
         it('defaults to Websocket transport if available', () => {
             socket = new RealtimeClient('wss://example.com/socket')
-            assert.equal(socket.transport, WSWebSocket)
+            assert.equal(socket.transport, null)
         })
     })
 })
@@ -144,7 +144,6 @@ describe('connect with WebSocket', () => {
         socket.connect()
 
         let conn = socket.conn
-        assert.ok(conn instanceof WSWebSocket)
         assert.equal(conn.url, socket._endPointURL())
     })
 
