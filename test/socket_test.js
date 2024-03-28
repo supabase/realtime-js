@@ -864,7 +864,7 @@ describe('custom encoder and decoder', () => {
   })
 })
 
-describe('createChannel', () => {
+describe('createPrivateChannel', () => {
   let client, fetch
   beforeEach(() => {
     const apikey = 'abc123'
@@ -889,11 +889,106 @@ describe('createChannel', () => {
   })
 
   it('returns same channel name when set', async () => {
-    let result = await client.createChannel('topic')
+    let result = await client.createPrivateChannel('topic')
     assert.equal(result, 'topic')
   })
   it('returns random channel name when empty', async () => {
-    let result = await client.createChannel()
+    let result = await client.createPrivateChannel()
     assert.notEqual(result, 'topic')
+  })
+})
+
+describe('deletePrivateChannel', () => {
+  let name = 'topic'
+  let client, fetch
+  beforeEach(() => {
+    const apikey = 'abc123'
+    fetch = (url, opts) => {
+      if (
+        url == `http://localhost:4000/channels/${name}?apikey=${apikey}` &&
+        opts.method == 'DELETE'
+      ) {
+        return Promise.resolve({ ok: true, response: 202 })
+      }
+      return Promise.reject({ ok: false, response: 400 })
+    }
+    client = new RealtimeClient('ws://localhost:4000/socket', {
+      params: { apikey },
+      fetch: fetch,
+    })
+  })
+
+  afterEach(() => {
+    client.disconnect()
+  })
+
+  it('returns true when succesful', async () => {
+    let result = await client.deletePrivateChannel(name)
+    assert.ok(result)
+  })
+})
+
+describe('updatePrivateChannel', () => {
+  let name = 'topic'
+  let client, fetch
+  beforeEach(() => {
+    const apikey = 'abc123'
+    fetch = (url, opts) => {
+      if (
+        url == `http://localhost:4000/channels/${name}?apikey=${apikey}` &&
+        opts.method == 'PUT'
+      ) {
+        return Promise.resolve({ ok: true, response: 202 })
+      }
+      return Promise.reject({ ok: false, response: 400 })
+    }
+    client = new RealtimeClient('ws://localhost:4000/socket', {
+      params: { apikey },
+      fetch: fetch,
+    })
+  })
+
+  afterEach(() => {
+    client.disconnect()
+  })
+
+  it('returns new name when succesful', async () => {
+    let new_name = 'new_name'
+    let result = await client.updatePrivateChannel(name, new_name)
+    assert.equal(result, new_name)
+  })
+})
+
+describe('listPrivateChannels', () => {
+  let name = 'topic'
+  let client, fetch
+  beforeEach(() => {
+    const apikey = 'abc123'
+    fetch = (url, opts) => {
+      if (
+        url == `http://localhost:4000/channels?apikey=${apikey}` &&
+        opts.method == 'GET'
+      ) {
+        return Promise.resolve({
+          ok: true,
+          response: 200,
+          json: () => Promise.resolve([{ name }]),
+        })
+      }
+      return Promise.reject({ ok: false, response: 400 })
+    }
+    client = new RealtimeClient('ws://localhost:4000/socket', {
+      params: { apikey },
+      fetch: fetch,
+    })
+  })
+
+  afterEach(() => {
+    client.disconnect()
+  })
+
+  it('returns new name when succesful', async () => {
+    let result = await client.listPrivateChannels()
+    assert.deepEqual(result, [{ name }])
   })
 })

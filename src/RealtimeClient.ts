@@ -320,12 +320,13 @@ export default class RealtimeClient {
       }
     })
   }
+
   /**
-   * Creates a channel to be used as a private channel with the provided name.
+   * Creates a private channel to be used with the provided name.
    *
    * @param name Channel name to create. If null a random channel name will be generated
    */
-  createChannel(name: string | null): Promise<string> {
+  createPrivateChannel(name: string | null): Promise<string> {
     let channelName = name || Math.random().toString(36).substring(2, 15)
     const url = `${this.httpEndpoint}channels?apikey=${this.apiKey}`
     return this.fetch(url, {
@@ -340,6 +341,57 @@ export default class RealtimeClient {
     })
   }
 
+  /**
+   * Deletes a private channel
+   *
+   * @param name Channel name to delete.
+   */
+  deletePrivateChannel(name: string): Promise<boolean> {
+    const url = `${this.httpEndpoint}channels/${name}?apikey=${this.apiKey}`
+    return this.fetch(url, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    }).then((response) => {
+      if (!response.ok && response.status !== 202) {
+        throw new Error(response.statusText)
+      }
+      return true
+    })
+  }
+
+  /**
+   * Update a private channel
+   *
+   * @param name Channel name to update.
+   * @param new_name New channel name.
+   */
+  updatePrivateChannel(name: string, new_name: string): Promise<string> {
+    const url = `${this.httpEndpoint}channels/${name}?apikey=${this.apiKey}`
+    return this.fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: new_name }),
+    }).then((response) => {
+      if (!response.ok && response.status !== 202) {
+        throw new Error(response.statusText)
+      }
+      return new_name
+    })
+  }
+
+  /**
+   * Lists private channels
+   */
+  listPrivateChannels(): Promise<string[]> {
+    const url = `${this.httpEndpoint}channels?apikey=${this.apiKey}`
+    return this.fetch(url, { method: 'GET' }).then((response) => {
+      if (!response.ok && response.status !== 200) {
+        throw new Error(response.statusText)
+      }
+      return response.json()
+    })
+  }
   /**
    * Use either custom fetch, if provided, or default fetch to make HTTP requests
    *
