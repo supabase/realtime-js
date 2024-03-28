@@ -867,7 +867,16 @@ describe('custom encoder and decoder', () => {
 describe('createChannel', () => {
   let client, fetch
   beforeEach(() => {
-    fetch = () => Promise.resolve({ ok: true, response: 200 })
+    fetch = (url, opts) => {
+      if (
+        url == 'http://localhost:4000/channels' &&
+        opts.method == 'POST' &&
+        opts.headers['Content-Type'] == 'application/json'
+      ) {
+        return Promise.resolve({ ok: true, response: 200 })
+      }
+      return Promise.reject({ ok: false, response: 400 })
+    }
     client = new RealtimeClient('ws://localhost:4000/socket', {
       params: { apikey: 'abc123' },
       fetch: fetch,
@@ -884,6 +893,6 @@ describe('createChannel', () => {
   })
   it('returns random channel name when empty', async () => {
     let result = await client.createChannel()
-    assert.equal(result, 'topic')
+    assert.notEqual(result, 'topic')
   })
 })

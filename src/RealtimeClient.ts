@@ -327,9 +327,7 @@ export default class RealtimeClient {
    */
   createChannel(name: string | null): Promise<string> {
     let channelName = name || Math.random().toString(36).substring(2, 15)
-    console.log(channelName)
-    console.log(this.httpEndpoint)
-    return this.fetch(`${this.httpEndpoint}/channels`, {
+    return this.fetch(`${this.httpEndpoint}channels`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
