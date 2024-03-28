@@ -867,9 +867,10 @@ describe('custom encoder and decoder', () => {
 describe('createChannel', () => {
   let client, fetch
   beforeEach(() => {
+    const apikey = 'abc123'
     fetch = (url, opts) => {
       if (
-        url == 'http://localhost:4000/channels' &&
+        url == `http://localhost:4000/channels?apikey=${apikey}` &&
         opts.method == 'POST' &&
         opts.headers['Content-Type'] == 'application/json'
       ) {
@@ -878,7 +879,7 @@ describe('createChannel', () => {
       return Promise.reject({ ok: false, response: 400 })
     }
     client = new RealtimeClient('ws://localhost:4000/socket', {
-      params: { apikey: 'abc123' },
+      params: { apikey },
       fetch: fetch,
     })
   })
