@@ -66,6 +66,7 @@ export default class RealtimeClient {
   apiKey: string | null = null
   channels: RealtimeChannel[] = []
   endPoint: string = ''
+  httpEndpoint: string = ''
   headers?: { [key: string]: string } = DEFAULT_HEADERS
   params?: { [key: string]: string } = {}
   timeout: number = DEFAULT_TIMEOUT
@@ -99,6 +100,7 @@ export default class RealtimeClient {
    * Initializes the Socket.
    *
    * @param endPoint The string WebSocket endpoint, ie, "ws://example.com/socket", "wss://example.com", "/socket" (inherited host & protocol)
+   * @param httpEndpoint The string HTTP endpoint, ie, "https://example.com", "/" (inherited host & protocol)
    * @param options.transport The Websocket Transport, for example WebSocket.
    * @param options.timeout The default timeout in milliseconds to trigger push timeouts.
    * @param options.params The optional params to pass when connecting.
@@ -111,7 +113,9 @@ export default class RealtimeClient {
    */
   constructor(endPoint: string, options?: RealtimeClientOptions) {
     this.endPoint = `${endPoint}/${TRANSPORTS.websocket}`
-
+    this.httpEndpoint = endPoint
+      .replace(/ws(s)?:\/\//, 'http$1://')
+      .replace(/\/socket$/, '/')
     if (options?.transport) {
       this.transport = options.transport
     } else {
@@ -314,6 +318,26 @@ export default class RealtimeClient {
       if (channel.joinedOnce && channel._isJoined()) {
         channel._push(CHANNEL_EVENTS.access_token, { access_token: token })
       }
+    })
+  }
+  /**
+   * Creates a channel to be used as a private channel with the provided name.
+   *
+   * @param name Channel name to create. If null a random channel name will be generated
+   */
+  createChannel(name: string | null): Promise<string> {
+    let channelName = name || Math.random().toString(36).substring(2, 15)
+    console.log(channelName)
+    console.log(this.httpEndpoint)
+    return this.fetch(`${this.httpEndpoint}/channels`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    }).then((response) => {
+      if (!response.ok && response.status !== 200) {
+        throw new Error(response.statusText)
+      }
+      return channelName
     })
   }
 
