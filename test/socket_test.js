@@ -2,7 +2,6 @@ import assert from 'assert'
 import { Server as WebSocketServer, WebSocket } from 'mock-socket'
 import sinon from 'sinon'
 import { RealtimeClient } from '../dist/main'
-import fetchMock from 'fetch-mock'
 let socket
 
 describe('constructor', () => {
@@ -868,8 +867,7 @@ describe('custom encoder and decoder', () => {
 describe('createChannel', () => {
   let client, fetch
   beforeEach(() => {
-    fetch = new fetchMock()
-    fetch.mock('http://localhost:4000/channels', 200)
+    fetch = () => Promise.resolve({ ok: true, response: 200 })
     client = new RealtimeClient('ws://localhost:4000/socket', {
       params: { apikey: 'abc123' },
       fetch: fetch,
@@ -878,7 +876,6 @@ describe('createChannel', () => {
 
   afterEach(() => {
     client.disconnect()
-    fetch.restore()
   })
 
   it('returns same channel name when set', async () => {
