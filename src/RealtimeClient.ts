@@ -12,9 +12,9 @@ import Timer from './lib/timer'
 import Serializer from './lib/serializer'
 import RealtimeChannel from './RealtimeChannel'
 import type { RealtimeChannelOptions } from './RealtimeChannel'
-
 import type { WebSocket as WSWebSocket } from 'ws'
-
+import crypto from 'crypto'
+import { httpEndpointURL } from './lib/transformers'
 type Fetch = typeof fetch
 
 export type RealtimeClientOptions = {
@@ -113,9 +113,7 @@ export default class RealtimeClient {
    */
   constructor(endPoint: string, options?: RealtimeClientOptions) {
     this.endPoint = `${endPoint}/${TRANSPORTS.websocket}`
-    this.httpEndpoint = endPoint
-      .replace(/ws(s)?:\/\//, 'http$1://')
-      .replace(/\/socket$/, '/')
+    this.httpEndpoint = httpEndpointURL(endPoint)
     if (options?.transport) {
       this.transport = options.transport
     } else {
@@ -327,8 +325,8 @@ export default class RealtimeClient {
    * @param name Channel name to create. If null a random channel name will be generated
    */
   createPrivateChannel(name: string | null): Promise<string> {
-    let channelName = name || Math.random().toString(36).substring(2, 15)
-    const url = `${this.httpEndpoint}channels?apikey=${this.apiKey}`
+    let channelName = name || crypto.randomUUID().replace(/-/g, '')
+    const url = `${this.httpEndpoint}/channels?apikey=${this.apiKey}`
     return this.fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -347,7 +345,7 @@ export default class RealtimeClient {
    * @param name Channel name to delete.
    */
   deletePrivateChannel(name: string): Promise<boolean> {
-    const url = `${this.httpEndpoint}channels/${name}?apikey=${this.apiKey}`
+    const url = `${this.httpEndpoint}/channels/${name}?apikey=${this.apiKey}`
     return this.fetch(url, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -367,7 +365,7 @@ export default class RealtimeClient {
    * @param new_name New channel name.
    */
   updatePrivateChannel(name: string, new_name: string): Promise<string> {
-    const url = `${this.httpEndpoint}channels/${name}?apikey=${this.apiKey}`
+    const url = `${this.httpEndpoint}/channels/${name}?apikey=${this.apiKey}`
     return this.fetch(url, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -384,7 +382,7 @@ export default class RealtimeClient {
    * Lists private channels
    */
   listPrivateChannels(): Promise<string[]> {
-    const url = `${this.httpEndpoint}channels?apikey=${this.apiKey}`
+    const url = `${this.httpEndpoint}/channels?apikey=${this.apiKey}`
     return this.fetch(url, { method: 'GET' }).then((response) => {
       if (!response.ok && response.status !== 200) {
         throw new Error(response.statusText)
