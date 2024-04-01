@@ -1,20 +1,22 @@
+import type { WebSocket as WSWebSocket } from 'ws'
+
 import {
-  VSN,
   CHANNEL_EVENTS,
-  TRANSPORTS,
-  SOCKET_STATES,
-  DEFAULT_TIMEOUT,
-  WS_CLOSE_NORMAL,
-  DEFAULT_HEADERS,
   CONNECTION_STATE,
+  DEFAULT_HEADERS,
+  DEFAULT_TIMEOUT,
+  SOCKET_STATES,
+  TRANSPORTS,
+  VSN,
+  WS_CLOSE_NORMAL,
 } from './lib/constants'
-import Timer from './lib/timer'
 import Serializer from './lib/serializer'
+import Timer from './lib/timer'
+
+import { httpEndpointURL } from './lib/transformers'
 import RealtimeChannel from './RealtimeChannel'
 import type { RealtimeChannelOptions } from './RealtimeChannel'
-import type { WebSocket as WSWebSocket } from 'ws'
-import crypto from 'crypto'
-import { httpEndpointURL } from './lib/transformers'
+
 type Fetch = typeof fetch
 
 export type RealtimeClientOptions = {
@@ -322,10 +324,9 @@ export default class RealtimeClient {
   /**
    * Creates a private channel to be used with the provided name.
    *
-   * @param name Channel name to create. If null a random channel name will be generated
+   * @param name Channel name to create
    */
-  createPrivateChannel(name: string | null): Promise<string> {
-    let channelName = name || crypto.randomUUID().replace(/-/g, '')
+  createPrivateChannel(name: string): Promise<string> {
     const url = `${this.httpEndpoint}/channels?apikey=${this.apiKey}`
     return this.fetch(url, {
       method: 'POST',
@@ -335,7 +336,7 @@ export default class RealtimeClient {
       if (!response.ok && response.status !== 200) {
         throw new Error(response.statusText)
       }
-      return channelName
+      return name
     })
   }
 

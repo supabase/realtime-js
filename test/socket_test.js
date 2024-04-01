@@ -892,10 +892,6 @@ describe('createPrivateChannel', () => {
     let result = await client.createPrivateChannel('topic')
     assert.equal(result, 'topic')
   })
-  it('returns random channel name when empty', async () => {
-    let result = await client.createPrivateChannel()
-    assert.notEqual(result, 'topic')
-  })
 })
 
 describe('deletePrivateChannel', () => {
