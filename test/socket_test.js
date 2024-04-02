@@ -870,9 +870,10 @@ describe('createPrivateChannel', () => {
     const apikey = 'abc123'
     fetch = (url, opts) => {
       if (
-        url == `http://localhost:4000/channels?apikey=${apikey}` &&
+        url == `http://localhost:4000/channels` &&
         opts.method == 'POST' &&
-        opts.headers['Content-Type'] == 'application/json'
+        opts.headers['Content-Type'] == 'application/json' &&
+        opts.headers['Authorization'] == `Bearer ${apikey}`
       ) {
         return Promise.resolve({ ok: true, response: 200 })
       }
@@ -901,8 +902,9 @@ describe('deletePrivateChannel', () => {
     const apikey = 'abc123'
     fetch = (url, opts) => {
       if (
-        url == `http://localhost:4000/channels/${name}?apikey=${apikey}` &&
-        opts.method == 'DELETE'
+        url == `http://localhost:4000/channels/${name}` &&
+        opts.method == 'DELETE' &&
+        opts.headers['Authorization'] == `Bearer ${apikey}`
       ) {
         return Promise.resolve({ ok: true, response: 202 })
       }
@@ -931,8 +933,9 @@ describe('updatePrivateChannel', () => {
     const apikey = 'abc123'
     fetch = (url, opts) => {
       if (
-        url == `http://localhost:4000/channels/${name}?apikey=${apikey}` &&
-        opts.method == 'PUT'
+        url == `http://localhost:4000/channels/${name}` &&
+        opts.method == 'PATCH' &&
+        opts.headers['Authorization'] == `Bearer ${apikey}`
       ) {
         return Promise.resolve({ ok: true, response: 202 })
       }
@@ -962,8 +965,9 @@ describe('listPrivateChannels', () => {
     const apikey = 'abc123'
     fetch = (url, opts) => {
       if (
-        url == `http://localhost:4000/channels?apikey=${apikey}` &&
-        opts.method == 'GET'
+        url == `http://localhost:4000/channels` &&
+        opts.method == 'GET' &&
+        opts.headers['Authorization'] == `Bearer ${apikey}`
       ) {
         return Promise.resolve({
           ok: true,

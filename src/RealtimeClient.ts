@@ -327,10 +327,13 @@ export default class RealtimeClient {
    * @param name Channel name to create
    */
   createPrivateChannel(name: string): Promise<string> {
-    const url = `${this.httpEndpoint}/channels?apikey=${this.apiKey}`
+    const url = `${this.httpEndpoint}/channels`
     return this.fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.accessToken}`,
+      },
       body: JSON.stringify({ name }),
     }).then((response) => {
       if (!response.ok && response.status !== 200) {
@@ -346,10 +349,13 @@ export default class RealtimeClient {
    * @param name Channel name to delete.
    */
   deletePrivateChannel(name: string): Promise<boolean> {
-    const url = `${this.httpEndpoint}/channels/${name}?apikey=${this.apiKey}`
+    const url = `${this.httpEndpoint}/channels/${name}`
     return this.fetch(url, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.accessToken}`,
+      },
       body: JSON.stringify({ name }),
     }).then((response) => {
       if (!response.ok && response.status !== 202) {
@@ -366,10 +372,13 @@ export default class RealtimeClient {
    * @param new_name New channel name.
    */
   updatePrivateChannel(name: string, new_name: string): Promise<string> {
-    const url = `${this.httpEndpoint}/channels/${name}?apikey=${this.apiKey}`
+    const url = `${this.httpEndpoint}/channels/${name}`
     return this.fetch(url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.accessToken}`,
+      },
       body: JSON.stringify({ name: new_name }),
     }).then((response) => {
       if (!response.ok && response.status !== 202) {
@@ -383,8 +392,13 @@ export default class RealtimeClient {
    * Lists private channels
    */
   listPrivateChannels(): Promise<string[]> {
-    const url = `${this.httpEndpoint}/channels?apikey=${this.apiKey}`
-    return this.fetch(url, { method: 'GET' }).then((response) => {
+    const url = `${this.httpEndpoint}/channels`
+    return this.fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`,
+      },
+    }).then((response) => {
       if (!response.ok && response.status !== 200) {
         throw new Error(response.statusText)
       }
