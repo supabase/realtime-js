@@ -11,7 +11,7 @@ import type {
   RealtimePresenceState,
 } from './RealtimePresence'
 import * as Transformers from './lib/transformers'
-
+import { httpEndpointURL } from './lib/transformers'
 export type RealtimeChannelOptions = {
   config: {
     /**
@@ -191,7 +191,8 @@ export default class RealtimeChannel {
 
     this.presence = new RealtimePresence(this)
 
-    this.broadcastEndpointURL = this._broadcastEndpointURL()
+    this.broadcastEndpointURL =
+      httpEndpointURL(this.socket.endPoint) + '/api/broadcast'
   }
 
   /** Subscribe registers your client with the server */
@@ -529,12 +530,6 @@ export default class RealtimeChannel {
   }
 
   /** @internal */
-  _broadcastEndpointURL(): string {
-    let url = this.socket.endPoint
-    url = url.replace(/^ws/i, 'http')
-    url = url.replace(/(\/socket\/websocket|\/socket|\/websocket)\/?$/i, '')
-    return url.replace(/\/+$/, '') + '/api/broadcast'
-  }
 
   async _fetchWithTimeout(
     url: string,
