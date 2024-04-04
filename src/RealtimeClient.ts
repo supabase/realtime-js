@@ -98,6 +98,18 @@ export default class RealtimeClient {
   }
   fetch: Fetch
 
+  admin: {
+    createChannel: (name: string) => Promise<string>
+    deleteChannel: (name: string) => Promise<boolean>
+    updateChannel: (name: string, new_name: string) => Promise<string>
+    listChannels: () => Promise<string[]>
+  } = {
+    createChannel: this._createChannel.bind(this),
+    deleteChannel: this._deleteChannel.bind(this),
+    updateChannel: this._updateChannel.bind(this),
+    listChannels: this._listChannels.bind(this),
+  }
+
   /**
    * Initializes the Socket.
    *
@@ -322,11 +334,17 @@ export default class RealtimeClient {
   }
 
   /**
+   * Use either custom fetch, if provided, or default fetch to make HTTP requests
+   *
+   * @internal
+   */
+
+  /**
    * Creates a private channel to be used with the provided name.
    *
    * @param name Channel name to create
    */
-  createChannel(name: string): Promise<string> {
+  _createChannel(name: string): Promise<string> {
     const url = `${this.httpEndpoint}/channels`
     return this.fetch(url, {
       method: 'POST',
@@ -348,7 +366,7 @@ export default class RealtimeClient {
    *
    * @param name Channel name to delete.
    */
-  deleteChannel(name: string): Promise<boolean> {
+  _deleteChannel(name: string): Promise<boolean> {
     const url = `${this.httpEndpoint}/channels/${name}`
     return this.fetch(url, {
       method: 'DELETE',
@@ -371,7 +389,7 @@ export default class RealtimeClient {
    * @param name Channel name to update.
    * @param new_name New channel name.
    */
-  updateChannel(name: string, new_name: string): Promise<string> {
+  _updateChannel(name: string, new_name: string): Promise<string> {
     const url = `${this.httpEndpoint}/channels/${name}`
     return this.fetch(url, {
       method: 'PATCH',
@@ -391,7 +409,7 @@ export default class RealtimeClient {
   /**
    * Lists private channels
    */
-  listChannels(): Promise<string[]> {
+  _listChannels(): Promise<string[]> {
     const url = `${this.httpEndpoint}/channels`
     return this.fetch(url, {
       method: 'GET',
@@ -405,11 +423,6 @@ export default class RealtimeClient {
       return response.json()
     })
   }
-  /**
-   * Use either custom fetch, if provided, or default fetch to make HTTP requests
-   *
-   * @internal
-   */
   _resolveFetch = (customFetch?: Fetch): Fetch => {
     let _fetch: Fetch
     if (customFetch) {

@@ -890,7 +890,7 @@ describe('createChannel', () => {
   })
 
   it('returns same channel name when set', async () => {
-    let result = await client.createChannel('topic')
+    let result = await client.admin.createChannel('topic')
     assert.equal(result, 'topic')
   })
 })
@@ -921,7 +921,7 @@ describe('deleteChannel', () => {
   })
 
   it('returns true when succesful', async () => {
-    let result = await client.deleteChannel(name)
+    let result = await client.admin.deleteChannel(name)
     assert.ok(result)
   })
 })
@@ -953,7 +953,7 @@ describe('updateChannel', () => {
 
   it('returns new name when succesful', async () => {
     let new_name = 'new_name'
-    let result = await client.updateChannel(name, new_name)
+    let result = await client.admin.updateChannel(name, new_name)
     assert.equal(result, new_name)
   })
 })
@@ -988,7 +988,7 @@ describe('listChannels', () => {
   })
 
   it('returns new name when succesful', async () => {
-    let result = await client.listChannels()
+    let result = await client.admin.listChannels()
     assert.deepEqual(result, [{ name }])
   })
 })
