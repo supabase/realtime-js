@@ -864,7 +864,7 @@ describe('custom encoder and decoder', () => {
   })
 })
 
-describe('createPrivateChannel', () => {
+describe('createChannel', () => {
   let client, fetch
   beforeEach(() => {
     const apikey = 'abc123'
@@ -890,12 +890,12 @@ describe('createPrivateChannel', () => {
   })
 
   it('returns same channel name when set', async () => {
-    let result = await client.createPrivateChannel('topic')
+    let result = await client.createChannel('topic')
     assert.equal(result, 'topic')
   })
 })
 
-describe('deletePrivateChannel', () => {
+describe('deleteChannel', () => {
   let name = 'topic'
   let client, fetch
   beforeEach(() => {
@@ -921,12 +921,12 @@ describe('deletePrivateChannel', () => {
   })
 
   it('returns true when succesful', async () => {
-    let result = await client.deletePrivateChannel(name)
+    let result = await client.deleteChannel(name)
     assert.ok(result)
   })
 })
 
-describe('updatePrivateChannel', () => {
+describe('updateChannel', () => {
   let name = 'topic'
   let client, fetch
   beforeEach(() => {
@@ -953,12 +953,12 @@ describe('updatePrivateChannel', () => {
 
   it('returns new name when succesful', async () => {
     let new_name = 'new_name'
-    let result = await client.updatePrivateChannel(name, new_name)
+    let result = await client.updateChannel(name, new_name)
     assert.equal(result, new_name)
   })
 })
 
-describe('listPrivateChannels', () => {
+describe('listChannels', () => {
   let name = 'topic'
   let client, fetch
   beforeEach(() => {
@@ -988,7 +988,7 @@ describe('listPrivateChannels', () => {
   })
 
   it('returns new name when succesful', async () => {
-    let result = await client.listPrivateChannels()
+    let result = await client.listChannels()
     assert.deepEqual(result, [{ name }])
   })
 })
