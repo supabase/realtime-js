@@ -326,7 +326,7 @@ export default class RealtimeClient {
    *
    * @param name Channel name to create
    */
-  createPrivateChannel(name: string): Promise<string> {
+  createChannel(name: string): Promise<string> {
     const url = `${this.httpEndpoint}/channels`
     return this.fetch(url, {
       method: 'POST',
@@ -348,7 +348,7 @@ export default class RealtimeClient {
    *
    * @param name Channel name to delete.
    */
-  deletePrivateChannel(name: string): Promise<boolean> {
+  deleteChannel(name: string): Promise<boolean> {
     const url = `${this.httpEndpoint}/channels/${name}`
     return this.fetch(url, {
       method: 'DELETE',
@@ -371,7 +371,7 @@ export default class RealtimeClient {
    * @param name Channel name to update.
    * @param new_name New channel name.
    */
-  updatePrivateChannel(name: string, new_name: string): Promise<string> {
+  updateChannel(name: string, new_name: string): Promise<string> {
     const url = `${this.httpEndpoint}/channels/${name}`
     return this.fetch(url, {
       method: 'PATCH',
@@ -391,7 +391,7 @@ export default class RealtimeClient {
   /**
    * Lists private channels
    */
-  listPrivateChannels(): Promise<string[]> {
+  listChannels(): Promise<string[]> {
     const url = `${this.httpEndpoint}/channels`
     return this.fetch(url, {
       method: 'GET',
