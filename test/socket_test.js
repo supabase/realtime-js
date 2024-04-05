@@ -868,12 +868,14 @@ describe('createChannel', () => {
   let client, fetch
   beforeEach(() => {
     const apikey = 'abc123'
+    const jwt = 'jwt'
     fetch = (url, opts) => {
       if (
         url == `http://localhost:4000/channels` &&
         opts.method == 'POST' &&
         opts.headers['Content-Type'] == 'application/json' &&
-        opts.headers['Authorization'] == `Bearer ${apikey}`
+        opts.headers['Authorization'] == `Bearer ${jwt}` &&
+        opts.headers['apikey'] == apikey
       ) {
         return Promise.resolve({ ok: true, response: 200 })
       }
@@ -883,6 +885,7 @@ describe('createChannel', () => {
       params: { apikey },
       fetch: fetch,
     })
+    client.setAuth(jwt)
   })
 
   afterEach(() => {
@@ -900,11 +903,13 @@ describe('deleteChannel', () => {
   let client, fetch
   beforeEach(() => {
     const apikey = 'abc123'
+    const jwt = 'jwt'
     fetch = (url, opts) => {
       if (
         url == `http://localhost:4000/channels/${name}` &&
         opts.method == 'DELETE' &&
-        opts.headers['Authorization'] == `Bearer ${apikey}`
+        opts.headers['Authorization'] == `Bearer ${jwt}` &&
+        opts.headers['apikey'] == apikey
       ) {
         return Promise.resolve({ ok: true, response: 202 })
       }
@@ -914,6 +919,7 @@ describe('deleteChannel', () => {
       params: { apikey },
       fetch: fetch,
     })
+    client.setAuth(jwt)
   })
 
   afterEach(() => {
@@ -931,11 +937,13 @@ describe('updateChannel', () => {
   let client, fetch
   beforeEach(() => {
     const apikey = 'abc123'
+    const jwt = 'jwt'
     fetch = (url, opts) => {
       if (
         url == `http://localhost:4000/channels/${name}` &&
         opts.method == 'PATCH' &&
-        opts.headers['Authorization'] == `Bearer ${apikey}`
+        opts.headers['Authorization'] == `Bearer ${jwt}` &&
+        opts.headers['apikey'] == apikey
       ) {
         return Promise.resolve({ ok: true, response: 202 })
       }
@@ -945,6 +953,7 @@ describe('updateChannel', () => {
       params: { apikey },
       fetch: fetch,
     })
+    client.setAuth(jwt)
   })
 
   afterEach(() => {
@@ -963,11 +972,13 @@ describe('listChannels', () => {
   let client, fetch
   beforeEach(() => {
     const apikey = 'abc123'
+    const jwt = 'jwt'
     fetch = (url, opts) => {
       if (
         url == `http://localhost:4000/channels` &&
         opts.method == 'GET' &&
-        opts.headers['Authorization'] == `Bearer ${apikey}`
+        opts.headers['Authorization'] == `Bearer ${jwt}` &&
+        opts.headers['apikey'] == apikey
       ) {
         return Promise.resolve({
           ok: true,
@@ -981,6 +992,7 @@ describe('listChannels', () => {
       params: { apikey },
       fetch: fetch,
     })
+    client.setAuth(jwt)
   })
 
   afterEach(() => {
