@@ -332,7 +332,8 @@ export default class RealtimeClient {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.accessToken}`,
+        Authorization: this.accessToken ? `Bearer ${this.accessToken}` : '',
+        apikey: this.apiKey ? this.apiKey : '',
       },
       body: JSON.stringify({ name }),
     }).then((response) => {
@@ -354,7 +355,8 @@ export default class RealtimeClient {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.accessToken}`,
+        Authorization: this.accessToken ? `Bearer ${this.accessToken}` : '',
+        apikey: this.apiKey ? this.apiKey : '',
       },
       body: JSON.stringify({ name }),
     }).then((response) => {
@@ -377,7 +379,8 @@ export default class RealtimeClient {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.accessToken}`,
+        Authorization: this.accessToken ? `Bearer ${this.accessToken}` : '',
+        apikey: this.apiKey ? this.apiKey : '',
       },
       body: JSON.stringify({ name: new_name }),
     }).then((response) => {
@@ -396,7 +399,8 @@ export default class RealtimeClient {
     return this.fetch(url, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${this.accessToken}`,
+        Authorization: this.accessToken ? `Bearer ${this.accessToken}` : '',
+        apikey: this.apiKey ? this.apiKey : '',
       },
     }).then((response) => {
       if (!response.ok && response.status !== 200) {
