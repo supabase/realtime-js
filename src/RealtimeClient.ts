@@ -396,8 +396,6 @@ export default class RealtimeClient {
    */
   listChannels(): Promise<string[]> {
     const url = `${this.httpEndpoint}/api/channels/`
-    console.log('!!!')
-    console.log(url)
     return this.fetch(url, {
       method: 'GET',
       headers: {
