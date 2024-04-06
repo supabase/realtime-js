@@ -871,7 +871,7 @@ describe('createChannel', () => {
     const jwt = 'jwt'
     fetch = (url, opts) => {
       if (
-        url == `http://localhost:4000/channels` &&
+        url == `http://localhost:4000/api/channels/` &&
         opts.method == 'POST' &&
         opts.headers['Content-Type'] == 'application/json' &&
         opts.headers['Authorization'] == `Bearer ${jwt}` &&
@@ -906,7 +906,7 @@ describe('deleteChannel', () => {
     const jwt = 'jwt'
     fetch = (url, opts) => {
       if (
-        url == `http://localhost:4000/channels/${name}` &&
+        url == `http://localhost:4000/api/channels/${name}` &&
         opts.method == 'DELETE' &&
         opts.headers['Authorization'] == `Bearer ${jwt}` &&
         opts.headers['apikey'] == apikey
@@ -940,7 +940,7 @@ describe('updateChannel', () => {
     const jwt = 'jwt'
     fetch = (url, opts) => {
       if (
-        url == `http://localhost:4000/channels/${name}` &&
+        url == `http://localhost:4000/api/channels/${name}` &&
         opts.method == 'PATCH' &&
         opts.headers['Authorization'] == `Bearer ${jwt}` &&
         opts.headers['apikey'] == apikey
@@ -975,7 +975,7 @@ describe('listChannels', () => {
     const jwt = 'jwt'
     fetch = (url, opts) => {
       if (
-        url == `http://localhost:4000/channels` &&
+        url == `http://localhost:4000/api/channels/` &&
         opts.method == 'GET' &&
         opts.headers['Authorization'] == `Bearer ${jwt}` &&
         opts.headers['apikey'] == apikey
