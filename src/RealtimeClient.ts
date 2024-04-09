@@ -19,6 +19,13 @@ import type { RealtimeChannelOptions } from './RealtimeChannel'
 
 type Fetch = typeof fetch
 
+export type Channel = {
+  name: string
+  inserted_at: string
+  updated_at: string
+  id: number
+}
+
 export type RealtimeClientOptions = {
   transport?: WebSocketLikeConstructor
   timeout?: number
@@ -326,7 +333,7 @@ export default class RealtimeClient {
    *
    * @param name Channel name to create
    */
-  createChannel(name: string): Promise<string> {
+  createChannel(name: string): Promise<Channel> {
     const url = `${this.httpEndpoint}/api/channels/`
     return this.fetch(url, {
       method: 'POST',
@@ -340,7 +347,7 @@ export default class RealtimeClient {
       if (!response.ok && response.status !== 200) {
         throw new Error(response.statusText)
       }
-      return name
+      return response.json()
     })
   }
 
@@ -387,14 +394,14 @@ export default class RealtimeClient {
       if (!response.ok && response.status !== 202) {
         throw new Error(response.statusText)
       }
-      return new_name
+      return response.json()
     })
   }
 
   /**
    * Lists private channels
    */
-  listChannels(): Promise<string[]> {
+  listChannels(): Promise<Channel[]> {
     const url = `${this.httpEndpoint}/api/channels/`
     return this.fetch(url, {
       method: 'GET',

@@ -865,6 +865,7 @@ describe('custom encoder and decoder', () => {
 })
 
 describe('createChannel', () => {
+  let name = 'topic'
   let client, fetch
   beforeEach(() => {
     const apikey = 'abc123'
@@ -877,7 +878,11 @@ describe('createChannel', () => {
         opts.headers['Authorization'] == `Bearer ${jwt}` &&
         opts.headers['apikey'] == apikey
       ) {
-        return Promise.resolve({ ok: true, response: 200 })
+        return Promise.resolve({
+          ok: true,
+          response: 200,
+          json: () => Promise.resolve({ name }),
+        })
       }
       return Promise.reject({ ok: false, response: 400 })
     }
@@ -893,8 +898,8 @@ describe('createChannel', () => {
   })
 
   it('returns same channel name when set', async () => {
-    let result = await client.createChannel('topic')
-    assert.equal(result, 'topic')
+    let result = await client.createChannel(name)
+    assert.equal(result.name, name)
   })
 })
 
@@ -934,6 +939,8 @@ describe('deleteChannel', () => {
 
 describe('updateChannel', () => {
   let name = 'topic'
+  let new_name = 'new_name'
+
   let client, fetch
   beforeEach(() => {
     const apikey = 'abc123'
@@ -945,7 +952,11 @@ describe('updateChannel', () => {
         opts.headers['Authorization'] == `Bearer ${jwt}` &&
         opts.headers['apikey'] == apikey
       ) {
-        return Promise.resolve({ ok: true, response: 202 })
+        return Promise.resolve({
+          ok: true,
+          response: 202,
+          json: () => Promise.resolve({ name: new_name }),
+        })
       }
       return Promise.reject({ ok: false, response: 400 })
     }
@@ -961,9 +972,8 @@ describe('updateChannel', () => {
   })
 
   it('returns new name when succesful', async () => {
-    let new_name = 'new_name'
     let result = await client.updateChannel(name, new_name)
-    assert.equal(result, new_name)
+    assert.equal(result.name, new_name)
   })
 })
 
