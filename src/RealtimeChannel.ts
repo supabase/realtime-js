@@ -12,6 +12,7 @@ import type {
 } from './RealtimePresence'
 import * as Transformers from './lib/transformers'
 import { httpEndpointURL } from './lib/transformers'
+
 export type RealtimeChannelOptions = {
   config: {
     /**
@@ -23,6 +24,10 @@ export type RealtimeChannelOptions = {
      * key option is used to track presence payload across clients
      */
     presence?: { key?: string }
+    /**
+     * defines if the channel is private or not and if RLS policies will be used to check data
+     */
+    private?: boolean
   }
 }
 
@@ -138,7 +143,6 @@ export default class RealtimeChannel {
     public socket: RealtimeClient
   ) {
     this.subTopic = topic.replace(/^realtime:/i, '')
-
     this.params.config = {
       ...{
         broadcast: { ack: false, self: false },
@@ -219,6 +223,7 @@ export default class RealtimeChannel {
         presence,
         postgres_changes:
           this.bindings.postgres_changes?.map((r) => r.filter) ?? [],
+        private: this.params.config.private || false,
       }
 
       if (this.socket.accessToken) {

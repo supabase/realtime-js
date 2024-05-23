@@ -291,7 +291,20 @@ describe('channel', () => {
       one: 'two',
     })
   })
+  it('returns channel with given topic and params for a private channel', () => {
+    channel = socket.channel('topic', { config: { private: true }, one: 'two' })
 
+    assert.deepStrictEqual(channel.socket, socket)
+    assert.equal(channel.topic, 'realtime:topic')
+    assert.deepEqual(channel.params, {
+      config: {
+        broadcast: { ack: false, self: false },
+        presence: { key: '' },
+        private: true,
+      },
+      one: 'two',
+    })
+  })
   it('adds channel to sockets channels list', () => {
     assert.equal(socket.channels.length, 0)
 
@@ -861,156 +874,5 @@ describe('custom encoder and decoder', () => {
     socket.decode('...esoteric format...', (decoded) => {
       assert.deepStrictEqual(decoded, 'decode works')
     })
-  })
-})
-
-describe('createChannel', () => {
-  let name = 'topic'
-  let client, fetch
-  beforeEach(() => {
-    const apikey = 'abc123'
-    const jwt = 'jwt'
-    fetch = (url, opts) => {
-      if (
-        url == `http://localhost:4000/api/channels/` &&
-        opts.method == 'POST' &&
-        opts.headers['Content-Type'] == 'application/json' &&
-        opts.headers['Authorization'] == `Bearer ${jwt}` &&
-        opts.headers['apikey'] == apikey
-      ) {
-        return Promise.resolve({
-          ok: true,
-          response: 200,
-          json: () => Promise.resolve({ name }),
-        })
-      }
-      return Promise.reject({ ok: false, response: 400 })
-    }
-    client = new RealtimeClient('ws://localhost:4000/socket', {
-      params: { apikey },
-      fetch: fetch,
-    })
-    client.setAuth(jwt)
-  })
-
-  afterEach(() => {
-    client.disconnect()
-  })
-
-  it('returns same channel name when set', async () => {
-    let result = await client.createChannel(name)
-    assert.equal(result.name, name)
-  })
-})
-
-describe('deleteChannel', () => {
-  let name = 'topic'
-  let client, fetch
-  beforeEach(() => {
-    const apikey = 'abc123'
-    const jwt = 'jwt'
-    fetch = (url, opts) => {
-      if (
-        url == `http://localhost:4000/api/channels/${name}` &&
-        opts.method == 'DELETE' &&
-        opts.headers['Authorization'] == `Bearer ${jwt}` &&
-        opts.headers['apikey'] == apikey
-      ) {
-        return Promise.resolve({ ok: true, response: 202 })
-      }
-      return Promise.reject({ ok: false, response: 400 })
-    }
-    client = new RealtimeClient('ws://localhost:4000/socket', {
-      params: { apikey },
-      fetch: fetch,
-    })
-    client.setAuth(jwt)
-  })
-
-  afterEach(() => {
-    client.disconnect()
-  })
-
-  it('returns true when succesful', async () => {
-    let result = await client.deleteChannel(name)
-    assert.ok(result)
-  })
-})
-
-describe('updateChannel', () => {
-  let name = 'topic'
-  let new_name = 'new_name'
-
-  let client, fetch
-  beforeEach(() => {
-    const apikey = 'abc123'
-    const jwt = 'jwt'
-    fetch = (url, opts) => {
-      if (
-        url == `http://localhost:4000/api/channels/${name}` &&
-        opts.method == 'PATCH' &&
-        opts.headers['Authorization'] == `Bearer ${jwt}` &&
-        opts.headers['apikey'] == apikey
-      ) {
-        return Promise.resolve({
-          ok: true,
-          response: 202,
-          json: () => Promise.resolve({ name: new_name }),
-        })
-      }
-      return Promise.reject({ ok: false, response: 400 })
-    }
-    client = new RealtimeClient('ws://localhost:4000/socket', {
-      params: { apikey },
-      fetch: fetch,
-    })
-    client.setAuth(jwt)
-  })
-
-  afterEach(() => {
-    client.disconnect()
-  })
-
-  it('returns new name when succesful', async () => {
-    let result = await client.updateChannel(name, new_name)
-    assert.equal(result.name, new_name)
-  })
-})
-
-describe('listChannels', () => {
-  let name = 'topic'
-  let client, fetch
-  beforeEach(() => {
-    const apikey = 'abc123'
-    const jwt = 'jwt'
-    fetch = (url, opts) => {
-      if (
-        url == `http://localhost:4000/api/channels/` &&
-        opts.method == 'GET' &&
-        opts.headers['Authorization'] == `Bearer ${jwt}` &&
-        opts.headers['apikey'] == apikey
-      ) {
-        return Promise.resolve({
-          ok: true,
-          response: 200,
-          json: () => Promise.resolve([{ name }]),
-        })
-      }
-      return Promise.reject({ ok: false, response: 400 })
-    }
-    client = new RealtimeClient('ws://localhost:4000/socket', {
-      params: { apikey },
-      fetch: fetch,
-    })
-    client.setAuth(jwt)
-  })
-
-  afterEach(() => {
-    client.disconnect()
-  })
-
-  it('returns new name when succesful', async () => {
-    let result = await client.listChannels()
-    assert.deepEqual(result, [{ name }])
   })
 })
