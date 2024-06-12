@@ -121,6 +121,7 @@ describe('subscribe', () => {
           key: '',
         },
         postgres_changes: [],
+        private: false,
       },
       one: 'two',
     })
@@ -146,6 +147,7 @@ describe('subscribe', () => {
             broadcast: { ack: false, self: false },
             presence: { key: '' },
             postgres_changes: [],
+            private: false,
           },
           one: 'two',
         },
@@ -223,6 +225,7 @@ describe('subscribe', () => {
                 filter: 'id=eq.1',
               },
             ],
+            private: false,
           },
           one: 'two',
         },

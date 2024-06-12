@@ -147,6 +147,7 @@ export default class RealtimeChannel {
       ...{
         broadcast: { ack: false, self: false },
         presence: { key: '' },
+        private: false,
       },
       ...params.config,
     }
@@ -212,7 +213,7 @@ export default class RealtimeChannel {
       throw `tried to subscribe multiple times. 'subscribe' can only be called a single time per channel instance`
     } else {
       const {
-        config: { broadcast, presence },
+        config: { broadcast, presence, private: isPrivate },
       } = this.params
       this._onError((e: Error) => callback && callback('CHANNEL_ERROR', e))
       this._onClose(() => callback && callback('CLOSED'))
@@ -223,7 +224,7 @@ export default class RealtimeChannel {
         presence,
         postgres_changes:
           this.bindings.postgres_changes?.map((r) => r.filter) ?? [],
-        private: this.params.config.private || false,
+        private: isPrivate,
       }
 
       if (this.socket.accessToken) {
