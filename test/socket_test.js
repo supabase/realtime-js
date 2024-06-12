@@ -287,7 +287,7 @@ describe('channel', () => {
     assert.deepStrictEqual(channel.socket, socket)
     assert.equal(channel.topic, 'realtime:topic')
     assert.deepEqual(channel.params, {
-      config: { broadcast: { ack: false, self: false }, presence: { key: '' } },
+      config: { broadcast: { ack: false, self: false }, presence: { key: '' }, private: false },
       one: 'two',
     })
   })

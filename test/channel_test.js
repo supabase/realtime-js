@@ -24,7 +24,7 @@ describe('constructor', () => {
     assert.equal(channel.state, 'closed')
     assert.equal(channel.topic, 'topic')
     assert.deepEqual(channel.params, {
-      config: { broadcast: { ack: false, self: false }, presence: { key: '' } },
+      config: { broadcast: { ack: false, self: false }, presence: { key: '' }, private: false },
       one: 'two',
     })
     assert.deepEqual(channel.socket, socket)
@@ -40,7 +40,7 @@ describe('constructor', () => {
 
     assert.deepEqual(joinPush.channel, channel)
     assert.deepEqual(joinPush.payload, {
-      config: { broadcast: { ack: false, self: false }, presence: { key: '' } },
+      config: { broadcast: { ack: false, self: false }, presence: { key: '' }, private: false },
       one: 'two',
     })
     assert.equal(joinPush.event, 'phx_join')
