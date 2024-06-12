@@ -135,7 +135,6 @@ export default class RealtimeChannel {
   presence: RealtimePresence
   broadcastEndpointURL: string
   subTopic: string
-  private: boolean
 
   constructor(
     /** Topic name can be any string. */
@@ -199,8 +198,6 @@ export default class RealtimeChannel {
 
     this.broadcastEndpointURL =
       httpEndpointURL(this.socket.endPoint) + '/api/broadcast'
-
-    this.private = this.params.config.private || false
   }
 
   /** Subscribe registers your client with the server */
@@ -216,7 +213,7 @@ export default class RealtimeChannel {
       throw `tried to subscribe multiple times. 'subscribe' can only be called a single time per channel instance`
     } else {
       const {
-        config: { broadcast, presence, private: is_private },
+        config: { broadcast, presence, private: isPrivate },
       } = this.params
       this._onError((e: Error) => callback && callback('CHANNEL_ERROR', e))
       this._onClose(() => callback && callback('CLOSED'))
@@ -225,9 +222,9 @@ export default class RealtimeChannel {
       const config = {
         broadcast,
         presence,
-        private: is_private,
         postgres_changes:
           this.bindings.postgres_changes?.map((r) => r.filter) ?? [],
+        private: isPrivate,
       }
 
       if (this.socket.accessToken) {
