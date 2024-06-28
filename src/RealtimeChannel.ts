@@ -464,8 +464,10 @@ export default class RealtimeChannel {
         )
 
         if (response.ok) {
+          await response.body?.cancel()
           return 'ok'
         } else {
+          await response.body?.cancel()
           return 'error'
         }
       } catch (error: any) {
