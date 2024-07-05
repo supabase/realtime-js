@@ -199,7 +199,7 @@ export default class RealtimeChannel {
 
     this.broadcastEndpointURL =
       httpEndpointURL(this.socket.endPoint) + '/api/broadcast'
-    this.private = this.params.config.private !== false
+    this.private = this.params.config.private || false
   }
 
   /** Subscribe registers your client with the server */
