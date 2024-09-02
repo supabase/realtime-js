@@ -482,11 +482,14 @@ export default class RealtimeClient {
         this.workerRef!.terminate()
       }
       this.workerRef.onmessage = (event) => {
-        if (event.data === 'keepAlive') {
+        if (event.data.event === 'keepAlive') {
           this._sendHeartbeat()
         }
       }
-      this.workerRef.postMessage('start')
+      this.workerRef.postMessage({
+        event: 'start',
+        interval: this.heartbeatIntervalMs,
+      })
     }
 
     this.stateChangeCallbacks.open.forEach((callback) => callback())!
