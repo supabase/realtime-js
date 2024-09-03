@@ -13,6 +13,5 @@
     "moduleResolution": "Node",
     "forceConsistentCasingInFileNames": true,
     "stripInternal": true,
-    "types": ["vitest/globals"]
   }
 }

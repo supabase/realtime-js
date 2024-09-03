@@ -38,6 +38,8 @@ export type RealtimeClientOptions = {
   params?: { [key: string]: any }
   log_level?: 'info' | 'debug' | 'warn' | 'error'
   fetch?: Fetch
+  worker?: boolean
+  workerUrl?: string
 }
 
 export type RealtimeMessage = {
@@ -104,6 +106,9 @@ export default class RealtimeClient {
     message: [],
   }
   fetch: Fetch
+  worker?: boolean
+  workerUrl?: string
+  workerRef?: Worker
 
   /**
    * Initializes the Socket.
@@ -119,6 +124,8 @@ export default class RealtimeClient {
    * @param options.encode The function to encode outgoing messages. Defaults to JSON: (payload, callback) => callback(JSON.stringify(payload))
    * @param options.decode The function to decode incoming messages. Defaults to Serializer's decode.
    * @param options.reconnectAfterMs he optional function that returns the millsec reconnect interval. Defaults to stepped backoff off.
+   * @param options.worker Use Web Worker to set a side flow. Defaults to false.
+   * @param options.workerUrl The URL of the worker script. Defaults to https://realtime.supabase.com/worker.js that includes a heartbeat event call to keep the connection alive.
    */
   constructor(endPoint: string, options?: RealtimeClientOptions) {
     this.endPoint = `${endPoint}/${TRANSPORTS.websocket}`
@@ -160,6 +167,14 @@ export default class RealtimeClient {
     }, this.reconnectAfterMs)
 
     this.fetch = this._resolveFetch(options?.fetch)
+    if (options?.worker) {
+      if (typeof window !== 'undefined' && !window.Worker) {
+        throw new Error('Web Worker is not supported')
+      }
+      this.worker = options?.worker || false
+      this.workerUrl =
+        options?.workerUrl || 'https://realtime.supabase.com/worker.js'
+    }
   }
 
   /**
@@ -452,11 +467,31 @@ export default class RealtimeClient {
     this.log('transport', `connected to ${this._endPointURL()}`)
     this._flushSendBuffer()
     this.reconnectTimer.reset()
-    this.heartbeatTimer && clearInterval(this.heartbeatTimer)
-    this.heartbeatTimer = setInterval(
-      () => this._sendHeartbeat(),
-      this.heartbeatIntervalMs
-    )
+    if (!this.worker) {
+      this.heartbeatTimer && clearInterval(this.heartbeatTimer)
+      this.heartbeatTimer = setInterval(
+        () => this._sendHeartbeat(),
+        this.heartbeatIntervalMs
+      )
+    } else {
+      this.log('worker', `starting worker for from ${this.workerUrl!}`)
+
+      this.workerRef = new Worker(this.workerUrl!)
+      this.workerRef.onerror = (error) => {
+        this.log('worker', 'worker error', error.message)
+        this.workerRef!.terminate()
+      }
+      this.workerRef.onmessage = (event) => {
+        if (event.data.event === 'keepAlive') {
+          this._sendHeartbeat()
+        }
+      }
+      this.workerRef.postMessage({
+        event: 'start',
+        interval: this.heartbeatIntervalMs,
+      })
+    }
+
     this.stateChangeCallbacks.open.forEach((callback) => callback())!
   }
 
