@@ -71,7 +71,12 @@ interface WebSocketLikeError {
 }
 
 const NATIVE_WEBSOCKET_AVAILABLE = typeof WebSocket !== 'undefined'
-
+const WORKER_SCRIPT = `
+  addEventListener("message", (e) => {
+    if (e.data.event === "start") {
+      setInterval(() => postMessage({ event: "keepAlive" }), e.data.interval);
+    }
+  });`
 export default class RealtimeClient {
   accessToken: string | null = null
   apiKey: string | null = null
@@ -172,8 +177,7 @@ export default class RealtimeClient {
         throw new Error('Web Worker is not supported')
       }
       this.worker = options?.worker || false
-      this.workerUrl =
-        options?.workerUrl || 'https://realtime.supabase.com/worker.js'
+      this.workerUrl = options?.workerUrl
     }
   }
 
@@ -463,7 +467,7 @@ export default class RealtimeClient {
   }
 
   /** @internal */
-  private _onConnOpen() {
+  private async _onConnOpen() {
     this.log('transport', `connected to ${this._endPointURL()}`)
     this._flushSendBuffer()
     this.reconnectTimer.reset()
@@ -474,9 +478,14 @@ export default class RealtimeClient {
         this.heartbeatIntervalMs
       )
     } else {
-      this.log('worker', `starting worker for from ${this.workerUrl!}`)
+      if (this.workerUrl) {
+        this.log('worker', `starting worker for from ${this.workerUrl}`)
+      } else {
+        this.log('worker', `starting default worker`)
+      }
 
-      this.workerRef = new Worker(this.workerUrl!)
+      const objectUrl = this._workerObjectUrl(this.workerUrl!)
+      this.workerRef = new Worker(objectUrl)
       this.workerRef.onerror = (error) => {
         this.log('worker', 'worker error', error.message)
         this.workerRef!.terminate()
@@ -496,6 +505,7 @@ export default class RealtimeClient {
   }
 
   /** @internal */
+
   private _onConnClose(event: any) {
     this.log('transport', 'close', event)
     this._triggerChanError()
@@ -561,6 +571,17 @@ export default class RealtimeClient {
       ref: this.pendingHeartbeatRef,
     })
     this.setAuth(this.accessToken)
+  }
+
+  private _workerObjectUrl(url: string | undefined): string {
+    let result_url: string
+    if (url) {
+      result_url = url
+    } else {
+      const blob = new Blob([WORKER_SCRIPT], { type: 'application/javascript' })
+      result_url = URL.createObjectURL(blob)
+    }
+    return result_url
   }
 }
 
