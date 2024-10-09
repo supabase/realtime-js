@@ -38,14 +38,12 @@
     "ci": "run-s test coverage"
   },
   "dependencies": {
-    "@supabase/node-fetch": "^2.6.14",
-    "@types/phoenix": "^1.5.4",
-    "@types/ws": "^8.5.10",
-    "ws": "^8.14.2"
+    "@supabase/node-fetch": "^2.6.14"
   },
   "devDependencies": {
-    "@arethetypeswrong/cli": "^0.16.2",
     "@types/sinon": "^17.0.3",
+    "@types/phoenix": "^1.5.4",
+    "@arethetypeswrong/cli": "^0.16.2",
     "@vitest/coverage-v8": "^2.0.5",
     "eslint": "^7.0.0",
     "esm": "^3.2.25",

@@ -1,7 +1,6 @@
 import assert from 'assert'
 import { describe, beforeEach, afterEach, test } from 'vitest'
 import { Server as MockServer, WebSocket as MockWebSocket } from 'mock-socket'
-import WebSocket from 'ws'
 import sinon from 'sinon'
 
 import RealtimeClient from '../src/RealtimeClient'

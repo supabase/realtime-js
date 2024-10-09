@@ -1,5 +1,3 @@
-import type { WebSocket as WSWebSocket } from 'ws'
-
 import {
   CHANNEL_EVENTS,
   CONNECTION_STATE,
@@ -62,7 +60,7 @@ interface WebSocketLikeConstructor {
   ): WebSocketLike
 }
 
-type WebSocketLike = WebSocket | WSWebSocket | WSWebSocketDummy
+type WebSocketLike = WebSocket | WSWebSocketDummy
 
 interface WebSocketLikeError {
   error: any
@@ -96,7 +94,7 @@ export default class RealtimeClient {
   encode: Function
   decode: Function
   reconnectAfterMs: Function
-  conn: WebSocketLike | null = null
+  conn: any | null = null
   sendBuffer: Function[] = []
   serializer: Serializer = new Serializer()
   stateChangeCallbacks: {
@@ -205,13 +203,6 @@ export default class RealtimeClient {
       close: () => {
         this.conn = null
       },
-    })
-
-    import('ws').then(({ default: WS }) => {
-      this.conn = new WS(this._endPointURL(), undefined, {
-        headers: this.headers,
-      })
-      this.setupConnection()
     })
   }
 
