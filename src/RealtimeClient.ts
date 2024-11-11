@@ -193,6 +193,7 @@ export default class RealtimeClient {
       this.conn = new this.transport(this._endPointURL(), undefined, {
         headers: this.headers,
       })
+      this.setupConnection()
       return
     }
     if (NATIVE_WEBSOCKET_AVAILABLE) {
