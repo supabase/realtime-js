@@ -571,7 +571,7 @@ describe('setAuth', () => {
     const token = generateJWT('0s')
     socket.setAuth(token)
 
-    assert.strictEqual(socket.accessToken, token)
+    assert.notEqual(socket.accessToken, token)
     assert.equal(pushStub1.notCalled, true)
     assert.equal(pushStub2.notCalled, true)
     assert.equal(pushStub3.notCalled, true)
