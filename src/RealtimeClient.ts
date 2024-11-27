@@ -337,6 +337,21 @@ export default class RealtimeClient {
   setAuth(token: string | null): void {
     this.accessToken = token
 
+    if (token) {
+      let parsed = null
+      try {
+        parsed = JSON.parse(atob(token.split('.')[1]))
+      } catch (_error) {}
+      if (parsed && parsed.exp) {
+        let now = Math.floor(Date.now() / 1000)
+        let valid = now - parsed.exp < 0
+        if (!valid) {
+          this.log('auth', `${token} has expired, not sending it to realtime`)
+          return
+        }
+      }
+    }
+
     this.channels.forEach((channel) => {
       token && channel.updateJoinPayload({ access_token: token })
 
