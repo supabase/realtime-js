@@ -420,7 +420,6 @@ export default class RealtimeClient {
    * @param token A JWT string.
    */
   _setAuth(token: string | null): void {
-    console.log('1')
     this.accessToken = token
 
     this.channels.forEach((channel) => {

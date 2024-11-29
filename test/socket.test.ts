@@ -1,5 +1,5 @@
 import assert from 'assert'
-import { describe, beforeEach, afterEach, test } from 'vitest'
+import { describe, beforeEach, afterEach, test, vi } from 'vitest'
 import { Server, WebSocket as MockWebSocket } from 'mock-socket'
 import WebSocket from 'ws'
 import sinon from 'sinon'
@@ -30,6 +30,7 @@ beforeEach(() => {
 
 afterEach(() => {
   mockServer.stop()
+  vi.resetAllMocks()
 })
 
 describe('constructor', () => {
@@ -161,34 +162,34 @@ describe('connectionState', () => {
 
   test('returns closed if readyState unrecognized', () => {
     socket.connect()
-    sinon.stub(socket.conn as WebSocket, 'readyState').get(() => 5678)
+    vi.spyOn(socket.conn!, 'readyState', 'get').mockReturnValue(5678)
     assert.equal(socket.connectionState(), 'closed')
   })
 
   test('returns connecting', () => {
     socket.connect()
-    sinon.stub(socket.conn as WebSocket, 'readyState').get(() => 0)
+    vi.spyOn(socket.conn!, 'readyState', 'get').mockReturnValue(0)
     assert.equal(socket.connectionState(), 'connecting')
     assert.ok(!socket.isConnected(), 'is not connected')
   })
 
   test('returns open', () => {
     socket.connect()
-    sinon.stub(socket.conn as WebSocket, 'readyState').get(() => 1)
+    vi.spyOn(socket.conn!, 'readyState', 'get').mockReturnValue(1)
     assert.equal(socket.connectionState(), 'open')
     assert.ok(socket.isConnected(), 'is connected')
   })
 
   test('returns closing', () => {
     socket.connect()
-    sinon.stub(socket.conn as WebSocket, 'readyState').get(() => 2)
+    vi.spyOn(socket.conn!, 'readyState', 'get').mockReturnValue(2)
     assert.equal(socket.connectionState(), 'closing')
     assert.ok(!socket.isConnected(), 'is not connected')
   })
 
   test('returns closed', () => {
     socket.connect()
-    sinon.stub(socket.conn as WebSocket, 'readyState').get(() => 3)
+    vi.spyOn(socket.conn!, 'readyState', 'get').mockReturnValue(3)
     assert.equal(socket.connectionState(), 'closed')
     assert.ok(!socket.isConnected(), 'is not connected')
   })
@@ -324,19 +325,18 @@ describe('push', () => {
 
   test('sends data to connection when connected', () => {
     socket.connect()
-    sinon.stub(socket.conn as WebSocket, 'readyState').get(() => 1) // open
+    vi.spyOn(socket.conn!, 'readyState', 'get').mockReturnValue(1) // open
 
     const spy = sinon.spy(socket.conn, 'send' as keyof typeof socket.conn)
 
     socket.push(data)
 
     assert.ok(spy.calledWith(json))
-    sinon.stub(socket.conn as WebSocket, 'readyState').get(() => 3) // closed
   })
 
   test('buffers data when not connected', () => {
     socket.connect()
-    sinon.stub(socket.conn as WebSocket, 'readyState').get(() => 0) // connecting
+    vi.spyOn(socket.conn!, 'readyState', 'get').mockReturnValue(0) // connecting
     const spy = sinon.spy(socket.conn, 'send' as keyof typeof socket.conn)
 
     assert.equal(socket.sendBuffer.length, 0)
@@ -344,7 +344,7 @@ describe('push', () => {
 
     assert.ok(spy.neverCalledWith(json))
     assert.equal(socket.sendBuffer.length, 1)
-    sinon.stub(socket.conn as WebSocket, 'readyState').get(() => 1) // open
+    vi.spyOn(socket.conn!, 'readyState', 'get').mockReturnValue(1) // open
     socket.push(data)
     assert.ok(spy.calledWith(json))
   })
@@ -477,17 +477,17 @@ describe('sendHeartbeat', () => {
     socket.connect()
   })
   test("closes socket when heartbeat is not ack'd within heartbeat window", () => {
-    sinon.stub(socket.conn as WebSocket, 'readyState').get(() => 1) // open
+    vi.spyOn(socket.conn!, 'readyState', 'get').mockReturnValue(1) // open
     socket.sendHeartbeat()
     assert.equal(socket.connectionState(), 'open')
 
-    sinon.stub(socket.conn as WebSocket, 'readyState').get(() => 3) // closed
+    vi.spyOn(socket.conn!, 'readyState', 'get').mockReturnValue(3) // closed
     socket.sendHeartbeat()
     assert.equal(socket.connectionState(), 'closed')
   })
 
   test('pushes heartbeat data when connected', () => {
-    sinon.stub(socket.conn as WebSocket, 'readyState').get(() => 1) // open
+    vi.spyOn(socket.conn!, 'readyState', 'get').mockReturnValue(1) // open
 
     const spy = sinon.spy(socket.conn, 'send' as keyof typeof socket.conn)
     const data =
@@ -498,7 +498,7 @@ describe('sendHeartbeat', () => {
   })
 
   test('no ops when not connected', () => {
-    sinon.stub(socket.conn as WebSocket, 'readyState').get(() => 0) // connecting
+    vi.spyOn(socket.conn!, 'readyState', 'get').mockReturnValue(0) // connecting
 
     const spy = sinon.spy(socket.conn, 'send' as keyof typeof socket.conn)
     const data =
@@ -514,7 +514,7 @@ describe('flushSendBuffer', () => {
     socket.connect()
   })
   test('calls callbacks in buffer when connected', () => {
-    sinon.stub(socket.conn as WebSocket, 'readyState').get(() => 1) // open
+    vi.spyOn(socket.conn!, 'readyState', 'get').mockReturnValue(1) // open
     const spy1 = sinon.spy()
     const spy2 = sinon.spy()
     const spy3 = sinon.spy()
@@ -529,7 +529,7 @@ describe('flushSendBuffer', () => {
   })
 
   test('empties sendBuffer', () => {
-    sinon.stub(socket.conn as WebSocket, 'readyState').get(() => 1) // open
+    vi.spyOn(socket.conn!, 'readyState', 'get').mockReturnValue(1) // open
     socket.sendBuffer.push(() => {})
 
     socket.flushSendBuffer()
