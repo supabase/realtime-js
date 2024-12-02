@@ -40,7 +40,7 @@ export type RealtimeClientOptions = {
   fetch?: Fetch
   worker?: boolean
   workerUrl?: string
-  accessTokenCallback?: () => Promise<string>
+  accessToken?: () => Promise<string>
 }
 
 export type RealtimeMessage = {
@@ -112,7 +112,7 @@ export default class RealtimeClient {
     message: [],
   }
   fetch: Fetch
-  accessTokenCallback: (() => Promise<string>) | null = null
+  accessToken: (() => Promise<string>) | null = null
   worker?: boolean
   workerUrl?: string
   workerRef?: Worker
@@ -182,7 +182,7 @@ export default class RealtimeClient {
       this.workerUrl = options?.workerUrl
     }
 
-    this.accessTokenCallback = options?.accessTokenCallback || null
+    this.accessToken = options?.accessToken || null
   }
 
   /**
@@ -394,8 +394,8 @@ export default class RealtimeClient {
       ref: this.pendingHeartbeatRef,
     })
     // Utilizes callback if available
-    if (this.accessTokenCallback) {
-      let token = await this.accessTokenCallback()
+    if (this.accessToken) {
+      let token = await this.accessToken()
       this.setAuth(token)
     } else {
       this.setAuth(this.accessTokenValue)
