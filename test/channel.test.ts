@@ -1,5 +1,6 @@
-import assert, { ok } from 'assert'
+import assert from 'assert'
 import sinon from 'sinon'
+import crypto from 'crypto'
 import {
   describe,
   beforeEach,

@@ -3,6 +3,7 @@ import { describe, beforeEach, afterEach, test, vi, expect } from 'vitest'
 import { Server, WebSocket as MockWebSocket } from 'mock-socket'
 import WebSocket from 'ws'
 import sinon from 'sinon'
+import crypto from 'crypto'
 
 import RealtimeClient from '../src/RealtimeClient'
 import jwt from 'jsonwebtoken'
