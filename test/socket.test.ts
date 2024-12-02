@@ -396,7 +396,7 @@ describe('setAuth', () => {
     const token = generateJWT('1h')
     socket.setAuth(token)
 
-    assert.strictEqual(socket.accessToken, token)
+    assert.strictEqual(socket.accessTokenValue, token)
     assert.ok(pushStub1.calledWith('access_token', { access_token: token }))
     assert.ok(!pushStub2.calledWith('access_token', { access_token: token }))
     assert.ok(pushStub3.calledWith('access_token', { access_token: token }))
@@ -429,7 +429,7 @@ describe('setAuth', () => {
     const token = generateJWT('0s')
     socket.setAuth(token)
 
-    assert.notEqual(socket.accessToken, token)
+    assert.notEqual(socket.accessTokenValue, token)
     assert.equal(pushStub1.notCalled, true)
     assert.equal(pushStub2.notCalled, true)
     assert.equal(pushStub3.notCalled, true)
@@ -462,7 +462,7 @@ describe('setAuth', () => {
     const token = 'sb-key'
     socket.setAuth(token)
 
-    assert.strictEqual(socket.accessToken, token)
+    assert.strictEqual(socket.accessTokenValue, token)
     assert.ok(pushStub1.calledWith('access_token', { access_token: token }))
     assert.ok(!pushStub2.calledWith('access_token', { access_token: token }))
     assert.ok(pushStub3.calledWith('access_token', { access_token: token }))

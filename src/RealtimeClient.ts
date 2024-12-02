@@ -79,7 +79,7 @@ const WORKER_SCRIPT = `
     }
   });`
 export default class RealtimeClient {
-  accessToken: string | null = null
+  accessTokenValue: string | null = null
   apiKey: string | null = null
   channels: RealtimeChannel[] = []
   endPoint: string = ''
@@ -149,10 +149,10 @@ export default class RealtimeClient {
     if (options?.heartbeatIntervalMs)
       this.heartbeatIntervalMs = options.heartbeatIntervalMs
 
-    const accessToken = options?.params?.apikey
-    if (accessToken) {
-      this.accessToken = accessToken
-      this.apiKey = accessToken
+    const accessTokenValue = options?.params?.apikey
+    if (accessTokenValue) {
+      this.accessTokenValue = accessTokenValue
+      this.apiKey = accessTokenValue
     }
 
     this.reconnectAfterMs = options?.reconnectAfterMs
@@ -398,7 +398,7 @@ export default class RealtimeClient {
       let token = await this.accessTokenCallback()
       this.setAuth(token)
     } else {
-      this.setAuth(this.accessToken)
+      this.setAuth(this.accessTokenValue)
     }
   }
 
@@ -420,7 +420,7 @@ export default class RealtimeClient {
    * @param token A JWT string.
    */
   _setAuth(token: string | null): void {
-    this.accessToken = token
+    this.accessTokenValue = token
 
     this.channels.forEach((channel) => {
       token && channel.updateJoinPayload({ access_token: token })
@@ -538,7 +538,7 @@ export default class RealtimeClient {
   /** @internal */
   private async _onConnOpen() {
     this.log('transport', `connected to ${this.endpointURL()}`)
-    this._flushSendBuffer()
+    this.flushSendBuffer()
     this.reconnectTimer.reset()
     if (!this.worker) {
       this.heartbeatTimer && clearInterval(this.heartbeatTimer)

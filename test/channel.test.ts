@@ -144,7 +144,7 @@ describe('subscribe', () => {
   })
 
   test('updates join push payload access token', () => {
-    socket.accessToken = 'token123'
+    socket.accessTokenValue = 'token123'
 
     channel.subscribe()
 
@@ -1381,7 +1381,7 @@ describe('trigger', () => {
       timeout: defaultTimeout,
       params: { apikey: '123' },
     })
-    assert.equal(client.accessToken, '123')
+    assert.equal(client.accessTokenValue, '123')
   })
 })
 

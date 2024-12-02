@@ -238,8 +238,8 @@ export default class RealtimeChannel {
         private: isPrivate,
       }
 
-      if (this.socket.accessToken) {
-        accessTokenPayload.access_token = this.socket.accessToken
+      if (this.socket.accessTokenValue) {
+        accessTokenPayload.access_token = this.socket.accessTokenValue
       }
 
       this.updateJoinPayload({ ...{ config }, ...accessTokenPayload })
@@ -446,12 +446,13 @@ export default class RealtimeChannel {
   ): Promise<RealtimeChannelSendResponse> {
     if (!this._canPush() && args.type === 'broadcast') {
       const { event, payload: endpoint_payload } = args
+      const authorization = this.socket.accessTokenValue
+        ? `Bearer ${this.socket.accessTokenValue}`
+        : ''
       const options = {
         method: 'POST',
         headers: {
-          Authorization: this.socket.accessToken
-            ? `Bearer ${this.socket.accessToken}`
-            : '',
+          Authorization: authorization,
           apikey: this.socket.apiKey ? this.socket.apiKey : '',
           'Content-Type': 'application/json',
         },
