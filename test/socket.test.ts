@@ -1,5 +1,5 @@
 import assert from 'assert'
-import { describe, beforeEach, afterEach, test, vi } from 'vitest'
+import { describe, beforeEach, afterEach, test, vi, expect } from 'vitest'
 import { Server, WebSocket as MockWebSocket } from 'mock-socket'
 import WebSocket from 'ws'
 import sinon from 'sinon'
@@ -25,7 +25,9 @@ beforeEach(() => {
   projectRef = randomProjectRef()
   url = `wss://${projectRef}/socket`
   mockServer = new Server(url)
-  socket = new RealtimeClient(url, { transport: MockWebSocket })
+  socket = new RealtimeClient(url, {
+    transport: MockWebSocket,
+  })
 })
 
 afterEach(() => {
@@ -372,7 +374,7 @@ describe('setAuth', () => {
     socket.removeAllChannels()
   })
 
-  test("sets access token, updates channels' join payload, and pushes token to channels", () => {
+  test("sets access token, updates channels' join payload, and pushes token to channels", async () => {
     const channel1 = socket.channel('test-topic')
     const channel2 = socket.channel('test-topic')
     const channel3 = socket.channel('test-topic')
@@ -392,9 +394,8 @@ describe('setAuth', () => {
     const payloadStub1 = sinon.stub(channel1, 'updateJoinPayload')
     const payloadStub2 = sinon.stub(channel2, 'updateJoinPayload')
     const payloadStub3 = sinon.stub(channel3, 'updateJoinPayload')
-
     const token = generateJWT('1h')
-    socket.setAuth(token)
+    await socket.setAuth(token)
 
     assert.strictEqual(socket.accessTokenValue, token)
     assert.ok(pushStub1.calledWith('access_token', { access_token: token }))
@@ -427,7 +428,10 @@ describe('setAuth', () => {
     const payloadStub3 = sinon.stub(channel3, 'updateJoinPayload')
 
     const token = generateJWT('0s')
-    socket.setAuth(token)
+
+    expect(socket.setAuth(token)).rejects.toThrowError(
+      'InvalidJWTToken: Invalid value for JWT claim "exp" with value'
+    )
 
     assert.notEqual(socket.accessTokenValue, token)
     assert.equal(pushStub1.notCalled, true)
@@ -438,7 +442,7 @@ describe('setAuth', () => {
     assert.equal(payloadStub3.notCalled, true)
   })
 
-  test("sets access token, updates channels' join payload, and pushes token to channels if is not a jwt", () => {
+  test("sets access token, updates channels' join payload, and pushes token to channels if is not a jwt", async () => {
     const channel1 = socket.channel('test-topic')
     const channel2 = socket.channel('test-topic')
     const channel3 = socket.channel('test-topic')
@@ -459,16 +463,92 @@ describe('setAuth', () => {
     const payloadStub2 = sinon.stub(channel2, 'updateJoinPayload')
     const payloadStub3 = sinon.stub(channel3, 'updateJoinPayload')
 
-    const token = 'sb-key'
-    socket.setAuth(token)
+    const new_token = 'sb-key'
+    await socket.setAuth(new_token)
 
-    assert.strictEqual(socket.accessTokenValue, token)
-    assert.ok(pushStub1.calledWith('access_token', { access_token: token }))
-    assert.ok(!pushStub2.calledWith('access_token', { access_token: token }))
-    assert.ok(pushStub3.calledWith('access_token', { access_token: token }))
-    assert.ok(payloadStub1.calledWith({ access_token: token }))
-    assert.ok(payloadStub2.calledWith({ access_token: token }))
-    assert.ok(payloadStub3.calledWith({ access_token: token }))
+    assert.strictEqual(socket.accessTokenValue, new_token)
+    assert.ok(pushStub1.calledWith('access_token', { access_token: new_token }))
+    assert.ok(
+      !pushStub2.calledWith('access_token', { access_token: new_token })
+    )
+    assert.ok(pushStub3.calledWith('access_token', { access_token: new_token }))
+    assert.ok(payloadStub1.calledWith({ access_token: new_token }))
+    assert.ok(payloadStub2.calledWith({ access_token: new_token }))
+    assert.ok(payloadStub3.calledWith({ access_token: new_token }))
+  })
+
+  test("sets access token using callback, updates channels' join payload, and pushes token to channels", async () => {
+    let new_token = generateJWT('1h')
+    let new_socket = new RealtimeClient(url, {
+      transport: MockWebSocket,
+      accessToken: () => Promise.resolve(token),
+    })
+
+    const channel1 = new_socket.channel('test-topic')
+    const channel2 = new_socket.channel('test-topic')
+    const channel3 = new_socket.channel('test-topic')
+
+    channel1.state = CHANNEL_STATES.joined
+    channel2.state = CHANNEL_STATES.closed
+    channel3.state = CHANNEL_STATES.joined
+
+    channel1.joinedOnce = true
+    channel2.joinedOnce = false
+    channel3.joinedOnce = true
+
+    const pushStub1 = sinon.stub(channel1, '_push')
+    const pushStub2 = sinon.stub(channel2, '_push')
+    const pushStub3 = sinon.stub(channel3, '_push')
+
+    const payloadStub1 = sinon.stub(channel1, 'updateJoinPayload')
+    const payloadStub2 = sinon.stub(channel2, 'updateJoinPayload')
+    const payloadStub3 = sinon.stub(channel3, 'updateJoinPayload')
+
+    const token = generateJWT('1h')
+    await new_socket.setAuth()
+    assert.strictEqual(new_socket.accessTokenValue, new_token)
+    assert.ok(pushStub1.calledWith('access_token', { access_token: new_token }))
+    assert.ok(
+      !pushStub2.calledWith('access_token', { access_token: new_token })
+    )
+    assert.ok(pushStub3.calledWith('access_token', { access_token: new_token }))
+    assert.ok(payloadStub1.calledWith({ access_token: new_token }))
+    assert.ok(payloadStub2.calledWith({ access_token: new_token }))
+    assert.ok(payloadStub3.calledWith({ access_token: new_token }))
+  })
+
+  test("overrides access token, updates channels' join payload, and pushes token to channels", () => {
+    const channel1 = socket.channel('test-topic')
+    const channel2 = socket.channel('test-topic')
+    const channel3 = socket.channel('test-topic')
+
+    channel1.state = CHANNEL_STATES.joined
+    channel2.state = CHANNEL_STATES.closed
+    channel3.state = CHANNEL_STATES.joined
+
+    channel1.joinedOnce = true
+    channel2.joinedOnce = false
+    channel3.joinedOnce = true
+
+    const pushStub1 = sinon.stub(channel1, '_push')
+    const pushStub2 = sinon.stub(channel2, '_push')
+    const pushStub3 = sinon.stub(channel3, '_push')
+
+    const payloadStub1 = sinon.stub(channel1, 'updateJoinPayload')
+    const payloadStub2 = sinon.stub(channel2, 'updateJoinPayload')
+    const payloadStub3 = sinon.stub(channel3, 'updateJoinPayload')
+    const new_token = 'override'
+    socket.setAuth(new_token)
+
+    assert.strictEqual(socket.accessTokenValue, new_token)
+    assert.ok(pushStub1.calledWith('access_token', { access_token: new_token }))
+    assert.ok(
+      !pushStub2.calledWith('access_token', { access_token: new_token })
+    )
+    assert.ok(pushStub3.calledWith('access_token', { access_token: new_token }))
+    assert.ok(payloadStub1.calledWith({ access_token: new_token }))
+    assert.ok(payloadStub2.calledWith({ access_token: new_token }))
+    assert.ok(payloadStub3.calledWith({ access_token: new_token }))
   })
 })
 

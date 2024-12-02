@@ -1246,7 +1246,7 @@ describe('send', () => {
       timeout: defaultTimeout,
       params: { apikey: 'abc123' },
     })
-    socket.setAuth('abc123')
+    socket.setAuth()
     const channel = socket.channel('topic', { config: { private: true } })
 
     const expectedBody = {

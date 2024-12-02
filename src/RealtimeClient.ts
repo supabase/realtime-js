@@ -181,7 +181,6 @@ export default class RealtimeClient {
       this.worker = options?.worker || false
       this.workerUrl = options?.workerUrl
     }
-
     this.accessToken = options?.accessToken || null
   }
 
@@ -348,13 +347,22 @@ export default class RealtimeClient {
   /**
    * Sets the JWT access token used for channel subscription authorization and Realtime RLS.
    *
-   * @param token A JWT string.
+   * If param is null it will use the `accessToken` callback function or the token set on the client.
+   *
+   * On callback used, it will set the value of the token internal to the client.
+   *
+   * @param token A JWT string to override the token set on the client.
    */
-  setAuth(token: string | null): void {
-    if (token) {
+  async setAuth(token: string | null = null): Promise<void> {
+    let tokenToSend =
+      token ||
+      (this.accessToken && (await this.accessToken())) ||
+      this.accessTokenValue
+
+    if (tokenToSend) {
       let parsed = null
       try {
-        parsed = JSON.parse(atob(token.split('.')[1]))
+        parsed = JSON.parse(atob(tokenToSend.split('.')[1]))
       } catch (_error) {}
       if (parsed && parsed.exp) {
         let now = Math.floor(Date.now() / 1000)
@@ -364,11 +372,23 @@ export default class RealtimeClient {
             'auth',
             `InvalidJWTToken: Invalid value for JWT claim "exp" with value ${parsed.exp}`
           )
-          return
+          return Promise.reject(
+            `InvalidJWTToken: Invalid value for JWT claim "exp" with value ${parsed.exp}`
+          )
         }
       }
+
+      this.accessTokenValue = tokenToSend
+      this.channels.forEach((channel) => {
+        tokenToSend && channel.updateJoinPayload({ access_token: tokenToSend })
+
+        if (channel.joinedOnce && channel._isJoined()) {
+          channel._push(CHANNEL_EVENTS.access_token, {
+            access_token: tokenToSend,
+          })
+        }
+      })
     }
-    this._setAuth(token)
   }
   /**
    * Sends a heartbeat message if the socket is connected.
@@ -393,13 +413,7 @@ export default class RealtimeClient {
       payload: {},
       ref: this.pendingHeartbeatRef,
     })
-    // Utilizes callback if available
-    if (this.accessToken) {
-      let token = await this.accessToken()
-      this.setAuth(token)
-    } else {
-      this.setAuth(this.accessTokenValue)
-    }
+    this.setAuth()
   }
 
   /**
@@ -412,24 +426,6 @@ export default class RealtimeClient {
     }
   }
 
-  /**
-   * Sets the JWT access token on the socket and all open channels.
-   *
-   * It will push a CHANNEL_EVENTS.access_token event to all open channels to achieve it
-   * @internal
-   * @param token A JWT string.
-   */
-  _setAuth(token: string | null): void {
-    this.accessTokenValue = token
-
-    this.channels.forEach((channel) => {
-      token && channel.updateJoinPayload({ access_token: token })
-
-      if (channel.joinedOnce && channel._isJoined()) {
-        channel._push(CHANNEL_EVENTS.access_token, { access_token: token })
-      }
-    })
-  }
   /**
    * Use either custom fetch, if provided, or default fetch to make HTTP requests
    *

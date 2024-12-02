@@ -249,14 +249,7 @@ export default class RealtimeChannel {
 
       this.joinPush
         .receive('ok', async ({ postgres_changes }: PostgresChangesFilters) => {
-          if (this.socket.accessToken) {
-            let token = await this.socket.accessToken()
-            this.socket.setAuth(token)
-          } else {
-            this.socket.accessToken &&
-              this.socket.setAuth(this.socket.accessToken)
-          }
-
+          this.socket.setAuth()
           if (postgres_changes === undefined) {
             callback?.(REALTIME_SUBSCRIBE_STATES.SUBSCRIBED)
             return
