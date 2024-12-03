@@ -217,13 +217,13 @@ export default class RealtimeChannel {
     if (!this.socket.isConnected()) {
       this.socket.connect()
     }
-
     if (this.joinedOnce) {
       throw `tried to subscribe multiple times. 'subscribe' can only be called a single time per channel instance`
     } else {
       const {
         config: { broadcast, presence, private: isPrivate },
       } = this.params
+
       this._onError((e: Error) =>
         callback?.(REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR, e)
       )
@@ -309,7 +309,6 @@ export default class RealtimeChannel {
           return
         })
     }
-
     return this
   }
 

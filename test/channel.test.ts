@@ -8,6 +8,7 @@ import {
   test,
   beforeAll,
   afterAll,
+  vi,
 } from 'vitest'
 
 import RealtimeClient from '../src/RealtimeClient'
@@ -40,10 +41,9 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.resetAllMocks()
   mockServer.stop()
   clock.restore()
-  socket.disconnect()
-  channel.unsubscribe()
 })
 
 describe('constructor', () => {
@@ -1195,49 +1195,58 @@ describe('presence helper methods', () => {
 })
 
 describe('send', () => {
-  let pushStub
+  test('sends message via ws conn when subscribed to channel', async () => {
+    let subscribed = false
+    socket.connect()
+    vi.spyOn(socket.conn!, 'readyState', 'get').mockReturnValue(1)
+    const new_channel = socket.channel('topic', { config: { private: true } })
+    const pushStub = sinon.stub(new_channel, '_push')
 
-  beforeEach(() => {
-    channel = socket.channel('topic', { one: 'two', config: { private: true } })
-  })
-
-  afterEach(() => {
-    channel.unsubscribe()
-  })
-
-  // TODO - this test currently is not doing anything
-  test.skip('sends message via ws conn when subscribed to channel', () => {
-    channel.subscribe(async (status) => {
+    new_channel.subscribe(async (status) => {
+      console.log(status)
       if (status === 'SUBSCRIBED') {
-        pushStub = sinon.stub(channel, '_push')
-        pushStub.returns({
-          receive: (status, cb) => {
-            if (status === 'ok') cb()
-          },
-        })
-
-        const res = await channel.send({ type: 'broadcast', event: 'test' })
-
-        assert.equal(res, 'ok')
+        subscribed = true
+        await new_channel.send({ type: 'broadcast', event: 'test' })
       }
     })
+    new_channel.joinPush.trigger('ok', {})
+
+    await vi.waitFor(
+      () => {
+        if (subscribed) return true
+        else throw new Error('did not subscribe')
+      },
+      { timeout: 3000 }
+    )
+    assert.ok(pushStub.calledOnce)
+    assert.ok(
+      pushStub.calledWith('broadcast', { type: 'broadcast', event: 'test' })
+    )
   })
-  // TODO - this test currently is not doing anything
-  test.skip('tries to send message via ws conn when subscribed to channel but times out', async () => {
-    channel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        pushStub = sinon.stub(channel, '_push')
-        pushStub.returns({
-          receive: (status, cb) => {
-            if (status === 'timeout') cb()
-          },
-        })
 
-        const res = await channel.send({ type: 'test', id: 'u123' })
+  test('tries to send message via ws conn when subscribed to channel but times out', async () => {
+    let timed_out = false
+    socket.connect()
+    vi.spyOn(socket.conn!, 'readyState', 'get').mockReturnValue(1)
+    const new_channel = socket.channel('topic', { config: { private: true } })
+    const pushStub = sinon.stub(new_channel, '_push')
 
-        assert.equal(res, 'timed out')
+    new_channel.subscribe(async (status) => {
+      console.log(status)
+      if (status === 'TIMED_OUT') {
+        timed_out = true
       }
     })
+    new_channel.joinPush.trigger('timeout', {})
+
+    await vi.waitFor(
+      () => {
+        if (timed_out) return true
+        else throw new Error('did not time out')
+      },
+      { timeout: 3000 }
+    )
+    assert.equal(pushStub.callCount, 0)
   })
 
   test('sends message via http request to Broadcast endpoint when not subscribed to channel', async () => {
