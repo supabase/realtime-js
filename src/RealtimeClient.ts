@@ -204,20 +204,20 @@ export default class RealtimeClient {
       this.conn = new WebSocket(this.endpointURL())
       this.setupConnection()
       return
-    }
-
-    this.conn = new WSWebSocketDummy(this.endpointURL(), undefined, {
-      close: () => {
-        this.conn = null
-      },
-    })
-
-    import('ws').then(({ default: WS }) => {
-      this.conn = new WS(this.endpointURL(), undefined, {
-        headers: this.headers,
+    } else {
+      this.conn = new WSWebSocketDummy(this.endpointURL(), undefined, {
+        close: () => {
+          this.conn = null
+        },
       })
-      this.setupConnection()
-    })
+
+      import('ws').then(({ default: WS }) => {
+        this.conn = new WS(this.endpointURL(), undefined, {
+          headers: this.headers,
+        })
+        this.setupConnection()
+      })
+    }
   }
 
   /**
