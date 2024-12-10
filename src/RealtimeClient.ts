@@ -1,5 +1,3 @@
-import type { WebSocket as WSWebSocket } from 'ws'
-
 import {
   CHANNEL_EVENTS,
   CONNECTION_STATE,
@@ -62,8 +60,13 @@ export interface WebSocketLikeConstructor {
     options?: { headers: Object | undefined }
   ): WebSocketLike
 }
+const NATIVE_WEBSOCKET_AVAILABLE = typeof WebSocket !== 'undefined'
 
-export type WebSocketLike = WebSocket | WSWebSocket | WSWebSocketDummy
+const WSWebSocket = NATIVE_WEBSOCKET_AVAILABLE
+  ? WebSocket
+  : require('ws').WebSocket
+
+export type WebSocketLike = WebSocket | typeof WSWebSocket | WSWebSocketDummy
 
 export interface WebSocketLikeError {
   error: any
@@ -71,7 +74,6 @@ export interface WebSocketLikeError {
   type: string
 }
 
-const NATIVE_WEBSOCKET_AVAILABLE = typeof WebSocket !== 'undefined'
 const WORKER_SCRIPT = `
   addEventListener("message", (e) => {
     if (e.data.event === "start") {
