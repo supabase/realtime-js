@@ -174,7 +174,7 @@ channel.subscribe(async (status) => {
 
 ## Get All Channels
 
-You can see all the channels that your client has instantiatied.
+You can see all the channels that your client has instantiated.
 
 ```js
 // Setup...
