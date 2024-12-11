@@ -1,5 +1,3 @@
-import type { WebSocket as WSWebSocket } from 'ws'
-
 import {
   CHANNEL_EVENTS,
   CONNECTION_STATE,
@@ -62,8 +60,13 @@ export interface WebSocketLikeConstructor {
     options?: { headers: Object | undefined }
   ): WebSocketLike
 }
+const NATIVE_WEBSOCKET_AVAILABLE = typeof WebSocket !== 'undefined'
 
-export type WebSocketLike = WebSocket | WSWebSocket | WSWebSocketDummy
+const WSWebSocket = NATIVE_WEBSOCKET_AVAILABLE
+  ? WebSocket
+  : require('ws').WebSocket
+
+export type WebSocketLike = WebSocket | typeof WSWebSocket | WSWebSocketDummy
 
 export interface WebSocketLikeError {
   error: any
@@ -71,7 +74,6 @@ export interface WebSocketLikeError {
   type: string
 }
 
-const NATIVE_WEBSOCKET_AVAILABLE = typeof WebSocket !== 'undefined'
 const WORKER_SCRIPT = `
   addEventListener("message", (e) => {
     if (e.data.event === "start") {
@@ -204,20 +206,20 @@ export default class RealtimeClient {
       this.conn = new WebSocket(this.endpointURL())
       this.setupConnection()
       return
-    }
-
-    this.conn = new WSWebSocketDummy(this.endpointURL(), undefined, {
-      close: () => {
-        this.conn = null
-      },
-    })
-
-    import('ws').then(({ default: WS }) => {
-      this.conn = new WS(this.endpointURL(), undefined, {
-        headers: this.headers,
+    } else {
+      this.conn = new WSWebSocketDummy(this.endpointURL(), undefined, {
+        close: () => {
+          this.conn = null
+        },
       })
-      this.setupConnection()
-    })
+
+      import('ws').then(({ default: WS }) => {
+        this.conn = new WS(this.endpointURL(), undefined, {
+          headers: this.headers,
+        })
+        this.setupConnection()
+      })
+    }
   }
 
   /**
