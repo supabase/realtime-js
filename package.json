@@ -35,13 +35,18 @@
     "docs": "typedoc src/index.ts --out docs/v2",
     "docs:json": "typedoc --json docs/v2/spec.json --excludeExternals src/index.ts",
     "check-exports": "attw --pack .",
-    "ci": "run-s test coverage"
+    "ci": "run-s test coverage",
+    "postinstall": "node scripts/remove-ws-if-expo.js"
   },
   "dependencies": {
     "@supabase/node-fetch": "^2.6.14",
-    "@types/phoenix": "^1.5.4",
-    "@types/ws": "^8.5.10",
+    "@types/phoenix": "^1.5.4"
+  },
+  "optionalDependencies": {
     "ws": "^8.18.0"
+  },
+  "optionalDevDependencies": {
+    "@types/ws": "^8.5.10"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.16.2",
