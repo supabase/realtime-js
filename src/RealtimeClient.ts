@@ -396,7 +396,7 @@ export default class RealtimeClient {
       payload: {},
       ref: this.pendingHeartbeatRef,
     })
-    this.setAuth()
+    await this.setAuth()
   }
 
   /**
