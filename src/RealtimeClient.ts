@@ -7,6 +7,7 @@ import {
   DEFAULT_TIMEOUT,
   SOCKET_STATES,
   TRANSPORTS,
+  VERSION,
   VSN,
   WS_CLOSE_NORMAL,
 } from './lib/constants'
@@ -360,10 +361,14 @@ export default class RealtimeClient {
       (this.accessToken && (await this.accessToken())) ||
       this.accessTokenValue
 
-    if (tokenToSend) {
+    if (this.accessTokenValue != tokenToSend) {
       this.accessTokenValue = tokenToSend
       this.channels.forEach((channel) => {
-        tokenToSend && channel.updateJoinPayload({ access_token: tokenToSend })
+        tokenToSend &&
+          channel.updateJoinPayload({
+            access_token: tokenToSend,
+            version: VERSION,
+          })
 
         if (channel.joinedOnce && channel._isJoined()) {
           channel._push(CHANNEL_EVENTS.access_token, {
