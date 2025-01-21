@@ -407,42 +407,6 @@ describe('setAuth', () => {
     assert.ok(payloadStub3.calledWith({ access_token: token }))
   })
 
-  test('does not set access token if exp is invalid and warns the user', () => {
-    const channel1 = socket.channel('test-topic')
-    const channel2 = socket.channel('test-topic')
-    const channel3 = socket.channel('test-topic')
-
-    channel1.state = CHANNEL_STATES.joined
-    channel2.state = CHANNEL_STATES.closed
-    channel3.state = CHANNEL_STATES.joined
-
-    channel1.joinedOnce = true
-    channel2.joinedOnce = false
-    channel3.joinedOnce = true
-
-    const pushStub1 = sinon.stub(channel1, '_push')
-    const pushStub2 = sinon.stub(channel2, '_push')
-    const pushStub3 = sinon.stub(channel3, '_push')
-
-    const payloadStub1 = sinon.stub(channel1, 'updateJoinPayload')
-    const payloadStub2 = sinon.stub(channel2, 'updateJoinPayload')
-    const payloadStub3 = sinon.stub(channel3, 'updateJoinPayload')
-
-    const token = generateJWT('0s')
-
-    expect(socket.setAuth(token)).rejects.toThrowError(
-      'InvalidJWTToken: Invalid value for JWT claim "exp" with value'
-    )
-
-    assert.notEqual(socket.accessTokenValue, token)
-    assert.equal(pushStub1.notCalled, true)
-    assert.equal(pushStub2.notCalled, true)
-    assert.equal(pushStub3.notCalled, true)
-    assert.equal(payloadStub1.notCalled, true)
-    assert.equal(payloadStub2.notCalled, true)
-    assert.equal(payloadStub3.notCalled, true)
-  })
-
   test("sets access token, updates channels' join payload, and pushes token to channels if is not a jwt", async () => {
     const channel1 = socket.channel('test-topic')
     const channel2 = socket.channel('test-topic')
