@@ -405,19 +405,19 @@ describe('setAuth', () => {
     assert.ok(
       payloadStub1.calledWith({
         access_token: token,
-        version: '0.0.0-automated',
+        version: 'realtime-js/0.0.0-automated',
       })
     )
     assert.ok(
       payloadStub2.calledWith({
         access_token: token,
-        version: '0.0.0-automated',
+        version: 'realtime-js/0.0.0-automated',
       })
     )
     assert.ok(
       payloadStub3.calledWith({
         access_token: token,
-        version: '0.0.0-automated',
+        version: 'realtime-js/0.0.0-automated',
       })
     )
   })
@@ -442,7 +442,7 @@ describe('setAuth', () => {
     assert.ok(
       payloadStub1.calledOnceWith({
         access_token: token,
-        version: '0.0.0-automated',
+        version: 'realtime-js/0.0.0-automated',
       })
     )
   })
@@ -480,19 +480,19 @@ describe('setAuth', () => {
     assert.ok(
       payloadStub1.calledWith({
         access_token: new_token,
-        version: '0.0.0-automated',
+        version: 'realtime-js/0.0.0-automated',
       })
     )
     assert.ok(
       payloadStub2.calledWith({
         access_token: new_token,
-        version: '0.0.0-automated',
+        version: 'realtime-js/0.0.0-automated',
       })
     )
     assert.ok(
       payloadStub3.calledWith({
         access_token: new_token,
-        version: '0.0.0-automated',
+        version: 'realtime-js/0.0.0-automated',
       })
     )
   })
@@ -535,19 +535,19 @@ describe('setAuth', () => {
     assert.ok(
       payloadStub1.calledWith({
         access_token: new_token,
-        version: '0.0.0-automated',
+        version: 'realtime-js/0.0.0-automated',
       })
     )
     assert.ok(
       payloadStub2.calledWith({
         access_token: new_token,
-        version: '0.0.0-automated',
+        version: 'realtime-js/0.0.0-automated',
       })
     )
     assert.ok(
       payloadStub3.calledWith({
         access_token: new_token,
-        version: '0.0.0-automated',
+        version: 'realtime-js/0.0.0-automated',
       })
     )
   })
@@ -584,19 +584,19 @@ describe('setAuth', () => {
     assert.ok(
       payloadStub1.calledWith({
         access_token: new_token,
-        version: '0.0.0-automated',
+        version: 'realtime-js/0.0.0-automated',
       })
     )
     assert.ok(
       payloadStub2.calledWith({
         access_token: new_token,
-        version: '0.0.0-automated',
+        version: 'realtime-js/0.0.0-automated',
       })
     )
     assert.ok(
       payloadStub3.calledWith({
         access_token: new_token,
-        version: '0.0.0-automated',
+        version: 'realtime-js/0.0.0-automated',
       })
     )
   })

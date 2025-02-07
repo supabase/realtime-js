@@ -367,7 +367,7 @@ export default class RealtimeClient {
         tokenToSend &&
           channel.updateJoinPayload({
             access_token: tokenToSend,
-            version: VERSION,
+            version: `realtime-js/${VERSION}`,
           })
 
         if (channel.joinedOnce && channel._isJoined()) {
