@@ -5,7 +5,7 @@ import WebSocket from 'ws'
 import sinon from 'sinon'
 import crypto from 'crypto'
 
-import RealtimeClient from '../src/RealtimeClient'
+import RealtimeClient, { RealtimeMessage } from '../src/RealtimeClient'
 import jwt from 'jsonwebtoken'
 import { CHANNEL_STATES, LOG_LEVEL } from '../src/lib/constants'
 
@@ -712,7 +712,9 @@ describe('onConnMessage', () => {
   test("on heartbeat events from the 'phoenix' topic, callback is called", async () => {
     let called = false
     let socket = new RealtimeClient(url, {
-      heartbeatCallback: () => (called = true),
+      heartbeatCallback: (message: RealtimeMessage) => {
+        called = message.payload.status == 'ok'
+      },
     })
 
     const message =
