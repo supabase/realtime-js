@@ -5,7 +5,10 @@ import WebSocket from 'ws'
 import sinon from 'sinon'
 import crypto from 'crypto'
 
-import RealtimeClient, { RealtimeMessage } from '../src/RealtimeClient'
+import RealtimeClient, {
+  HeartbeatStatus,
+  RealtimeMessage,
+} from '../src/RealtimeClient'
 import jwt from 'jsonwebtoken'
 import { CHANNEL_STATES, LOG_LEVEL } from '../src/lib/constants'
 
@@ -711,14 +714,27 @@ describe('onConnMessage', () => {
 
   test("on heartbeat events from the 'phoenix' topic, callback is called", async () => {
     let called = false
-    let socket = new RealtimeClient(url, {
-      heartbeatCallback: (message: RealtimeMessage) => {
-        called = message.payload.status == 'ok'
-      },
-    })
+    let socket = new RealtimeClient(url)
+    socket.onHeartbeat((message: HeartbeatStatus) => (called = message == 'ok'))
 
     const message =
       '{"ref":"1","event":"phx_reply","payload":{"status":"ok","response":{}},"topic":"phoenix"}'
+    const data = { data: message }
+
+    socket.pendingHeartbeatRef = '3'
+    socket._onConnMessage(data)
+
+    assert.strictEqual(called, true)
+  })
+  test("on heartbeat events from the 'phoenix' topic, callback is called with error", async () => {
+    let called = false
+    let socket = new RealtimeClient(url)
+    socket.onHeartbeat(
+      (message: HeartbeatStatus) => (called = message == 'error')
+    )
+
+    const message =
+      '{"ref":"1","event":"phx_reply","payload":{"status":"error","response":{}},"topic":"phoenix"}'
     const data = { data: message }
 
     socket.pendingHeartbeatRef = '3'
