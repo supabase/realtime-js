@@ -65,6 +65,11 @@ export const convertChangeData = (
 ): Record => {
   const skipTypes = options.skipTypes ?? []
 
+  // TypeError: Cannot convert undefined or null to object at Object.keys (<anonymous>) at convertChangeData
+  if (!record) {
+    return {} as Record
+  }
+
   return Object.keys(record).reduce((acc, rec_key) => {
     acc[rec_key] = convertColumn(rec_key, columns, record, skipTypes)
     return acc
