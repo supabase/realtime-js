@@ -1,4 +1,5 @@
-import type { WebSocket as WSWebSocket } from 'ws'
+import NodeWebSocket from './node'
+import NativeWebSocket from './native'
 
 import {
   CHANNEL_EVENTS,
@@ -54,7 +55,10 @@ export interface WebSocketLikeConstructor {
   ): WebSocketLike
 }
 
-export type WebSocketLike = WebSocket | WSWebSocket | WSWebSocketDummy
+export type WebSocketLike =
+  | WebSocket
+  | InstanceType<typeof NodeWebSocket>
+  | WSWebSocketDummy
 
 export interface WebSocketLikeError {
   error: any
@@ -88,6 +92,13 @@ const WORKER_SCRIPT = `
       setInterval(() => postMessage({ event: "keepAlive" }), e.data.interval);
     }
   });`
+const getWebSocketImpl = (
+  transport?: WebSocketLikeConstructor
+): WebSocketLikeConstructor => {
+  if (transport) return transport
+  if (typeof window === 'undefined') return NodeWebSocket
+  return NativeWebSocket as unknown as WebSocketLikeConstructor
+}
 export default class RealtimeClient {
   accessTokenValue: string | null = null
   apiKey: string | null = null
@@ -209,7 +220,9 @@ export default class RealtimeClient {
     if (this.conn) {
       return
     }
-
+    if (!this.transport) {
+      this.transport = getWebSocketImpl()
+    }
     if (this.transport) {
       this.conn = new this.transport(this.endpointURL(), undefined, {
         headers: this.headers,
@@ -217,24 +230,10 @@ export default class RealtimeClient {
       this.setupConnection()
       return
     }
-
-    if (NATIVE_WEBSOCKET_AVAILABLE) {
-      this.conn = new WebSocket(this.endpointURL())
-      this.setupConnection()
-      return
-    }
-
     this.conn = new WSWebSocketDummy(this.endpointURL(), undefined, {
       close: () => {
         this.conn = null
       },
-    })
-
-    import('ws').then(({ default: WS }) => {
-      this.conn = new WS(this.endpointURL(), undefined, {
-        headers: this.headers,
-      })
-      this.setupConnection()
     })
   }
 
@@ -560,7 +559,7 @@ export default class RealtimeClient {
   }
 
   /** @internal */
-  private async _onConnOpen() {
+  private _onConnOpen() {
     this.log('transport', `connected to ${this.endpointURL()}`)
     this.flushSendBuffer()
     this.reconnectTimer.reset()
@@ -576,11 +575,10 @@ export default class RealtimeClient {
       } else {
         this.log('worker', `starting default worker`)
       }
-
       const objectUrl = this._workerObjectUrl(this.workerUrl!)
       this.workerRef = new Worker(objectUrl)
       this.workerRef.onerror = (error) => {
-        this.log('worker', 'worker error', error.message)
+        this.log('worker', 'worker error', (error as ErrorEvent).message)
         this.workerRef!.terminate()
       }
       this.workerRef.onmessage = (event) => {
@@ -593,12 +591,10 @@ export default class RealtimeClient {
         interval: this.heartbeatIntervalMs,
       })
     }
-
-    this.stateChangeCallbacks.open.forEach((callback) => callback())!
+    this.stateChangeCallbacks.open.forEach((callback) => callback())
   }
 
   /** @internal */
-
   private _onConnClose(event: any) {
     this.log('transport', 'close', event)
     this._triggerChanError()
@@ -631,7 +627,6 @@ export default class RealtimeClient {
     }
     const prefix = url.match(/\?/) ? '&' : '?'
     const query = new URLSearchParams(params)
-
     return `${url}${prefix}${query}`
   }
 
