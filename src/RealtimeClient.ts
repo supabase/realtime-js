@@ -1,5 +1,4 @@
-import NodeWebSocket from './node'
-import NativeWebSocket from './native'
+import WebSocket from './WebSocket'
 
 import {
   CHANNEL_EVENTS,
@@ -55,10 +54,7 @@ export interface WebSocketLikeConstructor {
   ): WebSocketLike
 }
 
-export type WebSocketLike =
-  | WebSocket
-  | InstanceType<typeof NodeWebSocket>
-  | WSWebSocketDummy
+export type WebSocketLike = WebSocket | WSWebSocketDummy
 
 export interface WebSocketLikeError {
   error: any
@@ -85,20 +81,13 @@ export type RealtimeClientOptions = {
   accessToken?: () => Promise<string | null>
 }
 
-const NATIVE_WEBSOCKET_AVAILABLE = typeof WebSocket !== 'undefined'
 const WORKER_SCRIPT = `
   addEventListener("message", (e) => {
     if (e.data.event === "start") {
       setInterval(() => postMessage({ event: "keepAlive" }), e.data.interval);
     }
   });`
-const getWebSocketImpl = (
-  transport?: WebSocketLikeConstructor
-): WebSocketLikeConstructor => {
-  if (transport) return transport
-  if (typeof window === 'undefined') return NodeWebSocket
-  return NativeWebSocket as unknown as WebSocketLikeConstructor
-}
+
 export default class RealtimeClient {
   accessTokenValue: string | null = null
   apiKey: string | null = null
@@ -221,7 +210,7 @@ export default class RealtimeClient {
       return
     }
     if (!this.transport) {
-      this.transport = getWebSocketImpl()
+      this.transport = WebSocket
     }
     if (this.transport) {
       this.conn = new this.transport(this.endpointURL(), undefined, {
