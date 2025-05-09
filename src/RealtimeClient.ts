@@ -91,7 +91,7 @@ const WORKER_SCRIPT = `
 export default class RealtimeClient {
   accessTokenValue: string | null = null
   apiKey: string | null = null
-  channels: Set<RealtimeChannel> = new Set()
+  channels: RealtimeChannel[] = new Array()
   endPoint: string = ''
   httpEndpoint: string = ''
   headers?: { [key: string]: string } = DEFAULT_HEADERS
@@ -262,7 +262,7 @@ export default class RealtimeClient {
    * Returns all created channels
    */
   getChannels(): RealtimeChannel[] {
-    return Array.from(this.channels)
+    return this.channels
   }
 
   /**
@@ -273,9 +273,11 @@ export default class RealtimeClient {
     channel: RealtimeChannel
   ): Promise<RealtimeRemoveChannelResponse> {
     const status = await channel.unsubscribe()
-    if (this.channels.size === 0) {
+    this.channels = this.channels.filter((c) => c._joinRef !== channel._joinRef)
+    if (this.channels.length === 0) {
       this.disconnect()
     }
+
     return status
   }
 
@@ -284,13 +286,10 @@ export default class RealtimeClient {
    */
   async removeAllChannels(): Promise<RealtimeRemoveChannelResponse[]> {
     const values_1 = await Promise.all(
-      Array.from(this.channels).map((channel) => {
-        this.channels.delete(channel)
-        return channel.unsubscribe()
-      })
+      this.channels.map((channel) => channel.unsubscribe())
     )
     this.disconnect()
-
+    this.channels = []
     return values_1
   }
 
@@ -337,7 +336,8 @@ export default class RealtimeClient {
 
     if (!exists) {
       const chan = new RealtimeChannel(`realtime:${topic}`, params, this)
-      this.channels.add(chan)
+      this.channels.push(chan)
+
       return chan
     } else {
       return exists
@@ -480,7 +480,7 @@ export default class RealtimeClient {
    * @internal
    */
   _leaveOpenTopic(topic: string): void {
-    let dupChannel = Array.from(this.channels).find(
+    let dupChannel = this.channels.find(
       (c) => c.topic === topic && (c._isJoined() || c._isJoining())
     )
     if (dupChannel) {
@@ -497,7 +497,7 @@ export default class RealtimeClient {
    * @internal
    */
   _remove(channel: RealtimeChannel) {
-    this.channels.delete(channel)
+    this.channels = this.channels.filter((c) => c.topic !== channel.topic)
   }
 
   /**
