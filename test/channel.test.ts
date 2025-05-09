@@ -1113,7 +1113,7 @@ describe('leave', () => {
   })
 
   test("closes channel on 'ok' from server", () => {
-    const anotherChannel = socket.channel('another', { three: 'four' })
+    const anotherChannel = socket.channel('another')
     assert.equal(socket.getChannels().length, 2)
 
     channel.unsubscribe()
