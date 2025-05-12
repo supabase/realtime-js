@@ -253,15 +253,11 @@ export default class RealtimeClient {
         this.conn.close()
       }
       this.conn = null
+
       // remove open handles
       this.heartbeatTimer && clearInterval(this.heartbeatTimer)
       this.reconnectTimer.reset()
-      this.flushSendBuffer()
-      this.channels.forEach((channel) => {
-        channel.pushBuffer.forEach((push) => {
-          push.timeoutTimer && clearTimeout(push.timeoutTimer)
-        })
-      })
+      this.channels.forEach((channel) => channel.teardown())
     }
   }
 
@@ -281,7 +277,10 @@ export default class RealtimeClient {
   ): Promise<RealtimeRemoveChannelResponse> {
     const status = await channel.unsubscribe()
     this.channels = this.channels.filter((c) => c._joinRef !== channel._joinRef)
-    this.disconnect()
+
+    if (this.channels.length === 0) {
+      this.disconnect()
+    }
 
     return status
   }
@@ -293,8 +292,8 @@ export default class RealtimeClient {
     const values_1 = await Promise.all(
       this.channels.map((channel) => channel.unsubscribe())
     )
-    this.disconnect()
     this.channels = []
+    this.disconnect()
     return values_1
   }
 

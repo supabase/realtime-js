@@ -414,15 +414,13 @@ describe('joinPush', () => {
   }
 
   beforeEach(() => {
+    socket.disconnect()
+    channel.unsubscribe()
+
     channel = socket.channel('topic')
     joinPush = channel.joinPush
 
     channel.subscribe()
-  })
-
-  afterEach(() => {
-    socket.disconnect()
-    channel.unsubscribe()
   })
 
   describe("receives 'ok'", () => {
@@ -1094,6 +1092,8 @@ describe('leave', () => {
   let socketSpy
 
   beforeEach(() => {
+    socket.disconnect()
+    channel.unsubscribe()
     socket = new RealtimeClient('ws://example.com/socket', {
       timeout: defaultTimeout,
     })
@@ -1103,11 +1103,6 @@ describe('leave', () => {
     channel = socket.channel('topic')
     channel.subscribe()
     channel.joinPush.trigger('ok', {})
-  })
-
-  afterEach(() => {
-    socket.disconnect()
-    channel.unsubscribe()
   })
 
   test('unsubscribes from server events', () => {
@@ -1124,6 +1119,9 @@ describe('leave', () => {
         join_ref: defaultRef,
       })
     )
+
+    assert.equal(channel.state, CHANNEL_STATES.closed)
+    assert.deepEqual(channel.pushBuffer, [])
   })
 
   test("closes channel on 'ok' from server", () => {
