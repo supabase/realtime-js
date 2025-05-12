@@ -279,6 +279,8 @@ export default class RealtimeChannel {
                 })
               } else {
                 this.unsubscribe()
+                this.state = CHANNEL_STATES.errored
+
                 callback?.(
                   REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR,
                   new Error(
@@ -296,6 +298,7 @@ export default class RealtimeChannel {
           }
         })
         .receive('error', (error: { [key: string]: any }) => {
+          this.state = CHANNEL_STATES.errored
           callback?.(
             REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR,
             new Error(
