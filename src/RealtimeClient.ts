@@ -17,6 +17,7 @@ import Timer from './lib/timer'
 import { httpEndpointURL } from './lib/transformers'
 import RealtimeChannel from './RealtimeChannel'
 import type { RealtimeChannelOptions } from './RealtimeChannel'
+import Push from './lib/push'
 
 type Fetch = typeof fetch
 
@@ -255,6 +256,12 @@ export default class RealtimeClient {
       // remove open handles
       this.heartbeatTimer && clearInterval(this.heartbeatTimer)
       this.reconnectTimer.reset()
+      this.flushSendBuffer()
+      this.channels.forEach((channel) => {
+        channel.pushBuffer.forEach((push) => {
+          push.timeoutTimer && clearTimeout(push.timeoutTimer)
+        })
+      })
     }
   }
 
@@ -274,9 +281,7 @@ export default class RealtimeClient {
   ): Promise<RealtimeRemoveChannelResponse> {
     const status = await channel.unsubscribe()
     this.channels = this.channels.filter((c) => c._joinRef !== channel._joinRef)
-    if (this.channels.length === 0) {
-      this.disconnect()
-    }
+    this.disconnect()
 
     return status
   }

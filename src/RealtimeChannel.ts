@@ -516,6 +516,7 @@ export default class RealtimeChannel {
 
     this.rejoinTimer.reset()
     // Destroy joinPush to avoid connection timeouts during unscription phase
+
     this.joinPush.destroy()
 
     return new Promise((resolve) => {
