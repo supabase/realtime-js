@@ -42,3 +42,33 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: ./coverage/lcov.info
+
+  test-browser-example:
+    name: Test Browser Example
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: '20'
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - name: Install dependencies
+        working-directory: examples/browser
+        run: pnpm install
+      - name: Install Playwright browsers
+        working-directory: examples/browser
+        run: pnpm exec playwright install --with-deps
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start Supabase services
+        working-directory: examples/browser
+        run: supabase start
+      - name: Run browser example tests
+        working-directory: examples/browser
+        run: pnpm test

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Realtime Browser Example</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .connecting {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        .connect {
+            background-color: #28a745;
+            color: white;
+        }
+        .connect:hover {
+            background-color: #218838;
+        }
+        .disconnect {
+            background-color: #dc3545;
+            color: white;
+        }
+        .disconnect:hover {
+            background-color: #c82333;
+        }
+        .button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>Supabase Realtime Connection Status</h1>
+    <div id="status" class="status disconnected">Disconnected</div>
+    <button id="toggleConnection" class="button connect">Connect</button>
+    <div id="messages"></div>
+
+    <script type="module">
+        import { RealtimeClient } from 'https://cdn.jsdelivr.net/npm/@supabase/realtime-js/+esm'
+
+        const statusDiv = document.getElementById('status')
+        const messagesDiv = document.getElementById('messages')
+        const toggleButton = document.getElementById('toggleConnection')
+        let lastState = null
+
+        // Initialize the realtime client
+        const realtime = new RealtimeClient('http://127.0.0.1:54321/realtime/v1', {
+            params: {
+                apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
+            }
+        })
+
+        // Function to update UI based on connection state
+        function updateConnectionState(state) {
+            if (state === lastState) return
+            lastState = state
+
+            switch (state) {
+                case 'open':
+                    statusDiv.textContent = 'Connected'
+                    statusDiv.className = 'status connected'
+                    toggleButton.textContent = 'Disconnect'
+                    toggleButton.className = 'button disconnect'
+                    toggleButton.disabled = false
+                    addMessage('Connected to Supabase Realtime')
+                    break
+                case 'closed':
+                    statusDiv.textContent = 'Disconnected'
+                    statusDiv.className = 'status disconnected'
+                    toggleButton.textContent = 'Connect'
+                    toggleButton.className = 'button connect'
+                    toggleButton.disabled = false
+                    addMessage('Disconnected from Supabase Realtime')
+                    break
+                case 'connecting':
+                    statusDiv.textContent = 'Connecting...'
+                    statusDiv.className = 'status connecting'
+                    toggleButton.disabled = true
+                    addMessage('Connecting to Supabase Realtime...')
+                    break
+                case 'closing':
+                    statusDiv.textContent = 'Closing...'
+                    statusDiv.className = 'status closing'
+                    toggleButton.disabled = true
+                    addMessage('Closing connection...')
+                    break
+            }
+        }
+
+        // Check connection state every 5 seconds
+        setInterval(() => {
+            const state = realtime.connectionState()
+            updateConnectionState(state)
+        }, 5000)
+
+        // Initial state check
+        updateConnectionState(realtime.connectionState())
+
+        // Handle button click
+        toggleButton.addEventListener('click', () => {
+            if (realtime.isConnected()) {
+                realtime.disconnect()
+            } else {
+                realtime.connect()
+            }
+        })
+
+        function addMessage(message) {
+            const messageElement = document.createElement('div')
+            messageElement.textContent = `${new Date().toLocaleTimeString()}: ${message}`
+            messagesDiv.prepend(messageElement)
+        }
+    </script>
+</body>
+</html> 
