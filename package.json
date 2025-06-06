@@ -65,8 +65,11 @@
   },
   "exports": {
     ".": {
-      "node":"./dist/main/index.js",
-      "browser": "./dist/module/index.js",
+      "types": "./dist/module/index.d.ts",
+      "import": "./dist/module/index.js",
+      "browser": "./dist/module/index.js", 
+      "require": "./dist/main/index.js",
+      "node": "./dist/main/index.js",
       "default": "./dist/main/index.js"
     },
     "./websocket": {
