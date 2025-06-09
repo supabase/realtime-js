@@ -36,6 +36,7 @@ jobs:
       - name: Run CI steps
         run: |
           pnpm install
+          pnpm run build
           pnpm run ci
       - name: Upload coverage results to Coveralls
         uses: coverallsapp/github-action@master

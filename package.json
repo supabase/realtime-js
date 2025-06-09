@@ -41,6 +41,7 @@
     "@supabase/node-fetch": "^2.6.13",
     "@types/phoenix": "^1.6.6",
     "@types/ws": "^8.18.1",
+    "rimraf": "^6.0.1",
     "ws": "^8.18.2"
   },
   "devDependencies": {
@@ -65,19 +66,21 @@
   },
   "exports": {
     ".": {
-      "deno": "./dist/main/index.js",
       "types": "./dist/module/index.d.ts",
       "import": "./dist/module/index.js",
       "browser": "./dist/module/index.js",
       "require": "./dist/main/index.js",
+      "deno": "./dist/main/index.js",
       "node": "./dist/main/index.js",
       "default": "./dist/main/index.js"
-    },
-    "./websocket": {
-      "types": "./dist/WebSocket.d.ts",
-      "browser": "./dist/WebSocket.native.js",
-      "node": "./dist/WebSocket.js",
-      "default": "./dist/WebSocket.native.js"
+    }
+  },
+  "imports": {
+    "#WebSocket": {
+      "types": "./dist/module/WebSocket.d.ts",
+      "browser": "./dist/module/WebSocket.native.js",
+      "node": "./dist/main/WebSocket.js",
+      "default": "./dist/main/WebSocket.native.js"
     }
   }
 }

@@ -1,5 +1,5 @@
-import { DEFAULT_TIMEOUT } from '../lib/constants'
-import type RealtimeChannel from '../RealtimeChannel'
+import { DEFAULT_TIMEOUT } from '../lib/constants.ts'
+import type RealtimeChannel from '../RealtimeChannel.ts'
 
 export default class Push {
   sent: boolean = false

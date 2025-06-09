@@ -1,17 +1,17 @@
-import { CHANNEL_EVENTS, CHANNEL_STATES } from './lib/constants'
-import Push from './lib/push'
-import type RealtimeClient from './RealtimeClient'
-import Timer from './lib/timer'
+import { CHANNEL_EVENTS, CHANNEL_STATES } from './lib/constants.ts'
+import Push from './lib/push.ts'
+import type RealtimeClient from './RealtimeClient.ts'
+import Timer from './lib/timer.ts'
 import RealtimePresence, {
   REALTIME_PRESENCE_LISTEN_EVENTS,
-} from './RealtimePresence'
+} from './RealtimePresence.ts'
 import type {
   RealtimePresenceJoinPayload,
   RealtimePresenceLeavePayload,
   RealtimePresenceState,
-} from './RealtimePresence'
-import * as Transformers from './lib/transformers'
-import { httpEndpointURL } from './lib/transformers'
+} from './RealtimePresence.ts'
+import * as Transformers from './lib/transformers.ts'
+import { httpEndpointURL } from './lib/transformers.ts'
 
 export type RealtimeChannelOptions = {
   config: {
