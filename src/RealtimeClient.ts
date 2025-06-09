@@ -1,4 +1,4 @@
-import WebSocket from './WebSocket'
+import WebSocket from '#WebSocket'
 
 import {
   CHANNEL_EVENTS,
@@ -9,14 +9,14 @@ import {
   TRANSPORTS,
   VSN,
   WS_CLOSE_NORMAL,
-} from './lib/constants'
+} from './lib/constants.ts'
 
-import Serializer from './lib/serializer'
-import Timer from './lib/timer'
+import Serializer from './lib/serializer.ts'
+import Timer from './lib/timer.ts'
 
-import { httpEndpointURL } from './lib/transformers'
-import RealtimeChannel from './RealtimeChannel'
-import type { RealtimeChannelOptions } from './RealtimeChannel'
+import { httpEndpointURL } from './lib/transformers.ts'
+import RealtimeChannel from './RealtimeChannel.ts'
+import type { RealtimeChannelOptions } from './RealtimeChannel.ts'
 
 type Fetch = typeof fetch
 

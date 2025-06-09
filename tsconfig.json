@@ -1,6 +1,9 @@
 {
   "include": ["src"],
   "compilerOptions": {
+    "paths": {
+      "#WebSocket": ["./src/WebSocket.ts"]
+    },
     "declaration": true,
     "declarationMap": true,
     "module": "CommonJS",
@@ -13,5 +16,7 @@
     "moduleResolution": "Node",
     "forceConsistentCasingInFileNames": true,
     "stripInternal": true,
-  }
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true
+  },
 }

@@ -1,4 +1,4 @@
-import { version } from './version'
+import { version } from './version.ts'
 
 export const DEFAULT_HEADERS = { 'X-Client-Info': `realtime-js/${version}` }
 

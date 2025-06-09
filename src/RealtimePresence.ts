@@ -8,7 +8,7 @@ import type {
   PresenceOnJoinCallback,
   PresenceOnLeaveCallback,
 } from 'phoenix'
-import type RealtimeChannel from './RealtimeChannel'
+import type RealtimeChannel from './RealtimeChannel.ts'
 
 type Presence<T extends { [key: string]: any } = {}> = {
   presence_ref: string

@@ -2,7 +2,7 @@ import RealtimeClient, {
   RealtimeClientOptions,
   RealtimeMessage,
   RealtimeRemoveChannelResponse,
-} from './RealtimeClient'
+} from './RealtimeClient.ts'
 import RealtimeChannel, {
   RealtimeChannelOptions,
   RealtimeChannelSendResponse,
@@ -15,13 +15,13 @@ import RealtimeChannel, {
   REALTIME_POSTGRES_CHANGES_LISTEN_EVENT,
   REALTIME_SUBSCRIBE_STATES,
   REALTIME_CHANNEL_STATES,
-} from './RealtimeChannel'
+} from './RealtimeChannel.ts'
 import RealtimePresence, {
   RealtimePresenceState,
   RealtimePresenceJoinPayload,
   RealtimePresenceLeavePayload,
   REALTIME_PRESENCE_LISTEN_EVENTS,
-} from './RealtimePresence'
+} from './RealtimePresence.ts'
 
 export {
   RealtimePresence,
