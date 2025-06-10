@@ -503,8 +503,7 @@ export default class RealtimeClient {
     if (this.conn) {
       this.conn.binaryType = 'arraybuffer'
       this.conn.onopen = () => this._onConnOpen()
-      this.conn.onerror = (error: Event) =>
-        this._onConnError(error as unknown as WebSocketLikeError)
+      this.conn.onerror = (error: Event) => this._onConnError(error)
       this.conn.onmessage = (event: any) => this._onConnMessage(event)
       this.conn.onclose = (event: any) => this._onConnClose(event)
     }
@@ -586,8 +585,8 @@ export default class RealtimeClient {
   }
 
   /** @internal */
-  private _onConnError(error: WebSocketLikeError) {
-    this.log('transport', error.message)
+  private _onConnError(error: Event) {
+    this.log('transport', `${error}`)
     this._triggerChanError()
     this.stateChangeCallbacks.error.forEach((callback) => callback(error))
   }
@@ -621,26 +620,5 @@ export default class RealtimeClient {
       result_url = URL.createObjectURL(blob)
     }
     return result_url
-  }
-}
-
-class WSWebSocketDummy {
-  binaryType: string = 'arraybuffer'
-  close: Function
-  onclose: Function = () => { }
-  onerror: Function = () => { }
-  onmessage: Function = () => { }
-  onopen: Function = () => { }
-  readyState: number = SOCKET_STATES.connecting
-  send: Function = () => { }
-  url: string | URL | null = null
-
-  constructor(
-    address: string,
-    _protocols: undefined,
-    options: { close: Function }
-  ) {
-    this.url = address
-    this.close = options.close
   }
 }
