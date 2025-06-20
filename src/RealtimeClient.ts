@@ -266,7 +266,6 @@ export default class RealtimeClient {
     channel: RealtimeChannel
   ): Promise<RealtimeRemoveChannelResponse> {
     const status = await channel.unsubscribe()
-    this.channels = this.channels.filter((c) => c._joinRef !== channel._joinRef)
 
     if (this.channels.length === 0) {
       this.disconnect()
