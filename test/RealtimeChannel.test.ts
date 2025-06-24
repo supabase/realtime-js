@@ -1,21 +1,11 @@
 import assert from 'assert'
 import sinon from 'sinon'
 import crypto from 'crypto'
-import {
-  describe,
-  beforeEach,
-  afterEach,
-  test,
-  beforeAll,
-  afterAll,
-  vi,
-  it,
-} from 'vitest'
+import { describe, beforeEach, afterEach, test, vi } from 'vitest'
 
 import RealtimeClient from '../src/RealtimeClient'
 import RealtimeChannel from '../src/RealtimeChannel'
 import { Response } from '@supabase/node-fetch'
-import Worker from 'web-worker'
 import { Server, WebSocket } from 'mock-socket'
 import { CHANNEL_STATES } from '../src/lib/constants'
 import Push from '../src/lib/push'
