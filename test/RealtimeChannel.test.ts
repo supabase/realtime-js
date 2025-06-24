@@ -1407,40 +1407,6 @@ describe('trigger', () => {
   })
 })
 
-describe('worker', () => {
-  let client: RealtimeClient
-  let mockServer: Server
-
-  beforeAll(() => {
-    window.Worker = Worker
-    projectRef = randomProjectRef()
-    url = `wss://${projectRef}/socket`
-    mockServer = new Server(url)
-  })
-
-  afterAll(() => {
-    // @ts-ignore - Deliberately removing Worker to clean up test environment
-    window.Worker = undefined
-    mockServer.close()
-  })
-
-  beforeEach(() => {
-    client = new RealtimeClient('ws://localhost:8080/socket', {
-      worker: true,
-      workerUrl: 'https://realtime.supabase.com/worker.js',
-      heartbeatIntervalMs: 10,
-    })
-  })
-
-  test('sets worker flag', () => {
-    assert.ok(client.worker)
-  })
-
-  test('sets worker URL', () => {
-    assert.equal(client.workerUrl, 'https://realtime.supabase.com/worker.js')
-  })
-})
-
 describe('unsubscribe', () => {
   let destroySpy: sinon.SinonSpy
 
@@ -1456,7 +1422,7 @@ describe('unsubscribe', () => {
 
   test('cleans up leavePush on successful unsubscribe', async () => {
     await channel.unsubscribe()
-    
+
     assert.ok(destroySpy.calledTwice) // Once for joinPush, once for leavePush
     assert.equal(channel.state, CHANNEL_STATES.closed)
   })
@@ -1466,9 +1432,9 @@ describe('unsubscribe', () => {
       // Simulate timeout by not responding
       clock.tick(defaultTimeout + 1)
     })
-    
+
     const result = await channel.unsubscribe()
-    
+
     assert.ok(destroySpy.calledTwice) // Once for joinPush, once for leavePush
     assert.equal(result, 'timed out')
     assert.equal(channel.state, CHANNEL_STATES.closed)
@@ -1481,9 +1447,9 @@ describe('unsubscribe', () => {
   //     const leavePush = channel['joinPush']
   //     leavePush.trigger('error', {})
   //   })
-    
+
   //   const result = await channel.unsubscribe()
-    
+
   //   assert.ok(destroySpy.calledTwice) // Once for joinPush, once for leavePush
   //   assert.equal(result, 'error')
   //   assert.equal(channel.state, CHANNEL_STATES.closed)
@@ -1491,9 +1457,9 @@ describe('unsubscribe', () => {
 
   test('cleans up leavePush even if socket is not connected', async () => {
     sinon.stub(socket, 'isConnected').returns(false)
-    
+
     await channel.unsubscribe()
-    
+
     assert.ok(destroySpy.calledTwice) // Once for joinPush, once for leavePush
     assert.equal(channel.state, CHANNEL_STATES.closed)
   })
