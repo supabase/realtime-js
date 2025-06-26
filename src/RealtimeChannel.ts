@@ -23,7 +23,7 @@ export type RealtimeChannelOptions = {
     /**
      * key option is used to track presence payload across clients
      */
-    presence?: { key?: string }
+    presence?: { key?: string; enabled?: boolean }
     /**
      * defines if the channel is private or not and if RLS policies will be used to check data
      */
@@ -154,7 +154,7 @@ export default class RealtimeChannel {
     this.params.config = {
       ...{
         broadcast: { ack: false, self: false },
-        presence: { key: '' },
+        presence: { key: '', enabled: false },
         private: false,
       },
       ...params.config,
@@ -225,6 +225,7 @@ export default class RealtimeChannel {
       this._onError((e: Error) =>
         callback?.(REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR, e)
       )
+
       this._onClose(() => callback?.(REALTIME_SUBSCRIBE_STATES.CLOSED))
 
       const accessTokenPayload: { access_token?: string } = {}
@@ -414,9 +415,17 @@ export default class RealtimeChannel {
   ): RealtimeChannel
   on(
     type: `${REALTIME_LISTEN_TYPES}`,
-    filter: { event: string;[key: string]: string },
+    filter: { event: string; [key: string]: string },
     callback: (payload: any) => void
   ): RealtimeChannel {
+    if (type === REALTIME_LISTEN_TYPES.PRESENCE) {
+      this.updateJoinPayload({
+        config: {
+          ...this.params.config,
+          presence: { ...this.params.config.presence, enabled: true },
+        },
+      })
+    }
     return this._on(type, filter, callback)
   }
   /**
@@ -535,10 +544,9 @@ export default class RealtimeChannel {
       if (!this._canPush()) {
         leavePush.trigger('ok', {})
       }
+    }).finally(() => {
+      leavePush?.destroy()
     })
-      .finally(() => {
-        leavePush?.destroy()
-      })
   }
   /**
    * Teardown the channel.
@@ -649,7 +657,7 @@ export default class RealtimeChannel {
                 payload.ids?.includes(bindId) &&
                 (bindEvent === '*' ||
                   bindEvent?.toLocaleLowerCase() ===
-                  payload.data?.type.toLocaleLowerCase())
+                    payload.data?.type.toLocaleLowerCase())
               )
             } else {
               const bindEvent = bind?.filter?.event?.toLocaleLowerCase()
@@ -714,7 +722,6 @@ export default class RealtimeChannel {
   /** @internal */
   _on(type: string, filter: { [key: string]: any }, callback: Function) {
     const typeLower = type.toLocaleLowerCase()
-
     const binding = {
       type: typeLower,
       filter: filter,
