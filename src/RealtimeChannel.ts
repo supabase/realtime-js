@@ -222,24 +222,27 @@ export default class RealtimeChannel {
         config: { broadcast, presence, private: isPrivate },
       } = this.params
 
-      this._onError((e: Error) =>
-        callback?.(REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR, e)
-      )
+      const postgres_changes =
+        this.bindings.postgres_changes?.map((r) => r.filter) ?? []
 
-      this._onClose(() => callback?.(REALTIME_SUBSCRIBE_STATES.CLOSED))
-
+      const presence_enabled = !!this.bindings[REALTIME_LISTEN_TYPES.PRESENCE]
       const accessTokenPayload: { access_token?: string } = {}
       const config = {
         broadcast,
-        presence,
-        postgres_changes:
-          this.bindings.postgres_changes?.map((r) => r.filter) ?? [],
+        presence: { ...presence, enabled: presence_enabled },
+        postgres_changes,
         private: isPrivate,
       }
 
       if (this.socket.accessTokenValue) {
         accessTokenPayload.access_token = this.socket.accessTokenValue
       }
+
+      this._onError((e: Error) =>
+        callback?.(REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR, e)
+      )
+
+      this._onClose(() => callback?.(REALTIME_SUBSCRIBE_STATES.CLOSED))
 
       this.updateJoinPayload({ ...{ config }, ...accessTokenPayload })
 
@@ -418,12 +421,16 @@ export default class RealtimeChannel {
     filter: { event: string; [key: string]: string },
     callback: (payload: any) => void
   ): RealtimeChannel {
-    if (type === REALTIME_LISTEN_TYPES.PRESENCE) {
-      this.updateJoinPayload({
-        config: {
-          ...this.params.config,
-          presence: { ...this.params.config.presence, enabled: true },
-        },
+    if (
+      this.state === CHANNEL_STATES.joined &&
+      type === REALTIME_LISTEN_TYPES.PRESENCE
+    ) {
+      this.socket.log(
+        'channel',
+        `resubscribe to ${this.topic} due to change in presence callbacks on joined channel`
+      )
+      this.unsubscribe().then(() => {
+        this.subscribe()
       })
     }
     return this._on(type, filter, callback)

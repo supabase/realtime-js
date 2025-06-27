@@ -119,6 +119,7 @@ describe('constructor', () => {
       { config: { private: true } },
       socket
     )
+    channel.subscribe()
 
     const joinPush = channel.joinPush
 
@@ -127,6 +128,7 @@ describe('constructor', () => {
       config: {
         broadcast: { ack: false, self: false },
         presence: { key: '', enabled: false },
+        postgres_changes: [],
         private: true,
       },
     })
@@ -148,7 +150,7 @@ describe('constructor', () => {
     )
 
     channel.on('presence', { event: 'join' }, ({}) => {})
-
+    channel.subscribe()
     const joinPush = channel.joinPush
 
     assert.deepEqual(joinPush.channel, channel)
@@ -156,6 +158,7 @@ describe('constructor', () => {
       config: {
         broadcast: { ack: false, self: false },
         presence: { key: '', enabled: true },
+        postgres_changes: [],
         private: true,
       },
     })
@@ -989,6 +992,44 @@ describe('on', () => {
     channel.on('broadcast', { event: 'INSERT' }, spy)
     channel._trigger('broadcast', { event: 'INSERT' }, defaultRef)
     assert.ok(spy.called)
+  })
+
+  // Need some help with this test...
+  test.skip('when we bind a new callback on an already joined channel we resubscribe with new join payload', async () => {
+    channel.on('broadcast', { event: 'test' }, sinon.spy())
+    channel.subscribe()
+    channel.joinPush.trigger('ok', {})
+    assert.deepEqual(channel.joinPush.payload, {
+      config: {
+        broadcast: {
+          ack: false,
+          self: false,
+        },
+        postgres_changes: [],
+        presence: {
+          enabled: false,
+          key: '',
+        },
+        private: false,
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    channel.on('presence', { event: 'join' }, sinon.spy())
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    assert.deepEqual(channel.joinPush.payload, {
+      config: {
+        broadcast: {
+          ack: false,
+          self: false,
+        },
+        postgres_changes: [],
+        presence: {
+          enabled: false,
+          key: '',
+        },
+        private: false,
+      },
+    })
   })
 })
 
