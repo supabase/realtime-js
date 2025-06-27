@@ -429,9 +429,7 @@ export default class RealtimeChannel {
         'channel',
         `resubscribe to ${this.topic} due to change in presence callbacks on joined channel`
       )
-      this.unsubscribe().then(() => {
-        this.subscribe()
-      })
+      this.unsubscribe().then(() => this.subscribe())
     }
     return this._on(type, filter, callback)
   }

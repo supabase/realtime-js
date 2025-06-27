@@ -949,11 +949,13 @@ describe('on', () => {
     socket = new RealtimeClient('ws://example.com/socket')
     sinon.stub(socket, '_makeRef').callsFake(() => defaultRef)
     channel = socket.channel('topic')
+    clock.restore()
   })
 
   afterEach(() => {
     socket.disconnect()
     channel.unsubscribe()
+    clock = sinon.useFakeTimers()
   })
 
   test('sets up callback for broadcast', () => {
@@ -994,8 +996,7 @@ describe('on', () => {
     assert.ok(spy.called)
   })
 
-  // Need some help with this test...
-  test.skip('when we bind a new callback on an already joined channel we resubscribe with new join payload', async () => {
+  test('when we bind a new callback on an already joined channel we resubscribe with new join payload', async () => {
     channel.on('broadcast', { event: 'test' }, sinon.spy())
     channel.subscribe()
     channel.joinPush.trigger('ok', {})
@@ -1013,9 +1014,11 @@ describe('on', () => {
         private: false,
       },
     })
-    await new Promise((resolve) => setTimeout(resolve, 100))
+
     channel.on('presence', { event: 'join' }, sinon.spy())
-    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    await new Promise((resolve) => setTimeout(resolve, 3000))
+
     assert.deepEqual(channel.joinPush.payload, {
       config: {
         broadcast: {
@@ -1024,7 +1027,7 @@ describe('on', () => {
         },
         postgres_changes: [],
         presence: {
-          enabled: false,
+          enabled: true,
           key: '',
         },
         private: false,
