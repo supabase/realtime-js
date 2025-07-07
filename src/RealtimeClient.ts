@@ -186,7 +186,6 @@ export default class RealtimeClient {
       ? options.decode
       : this.serializer.decode.bind(this.serializer)
     this.reconnectTimer = new Timer(async () => {
-      await this.setAuth()
       this.disconnect()
       this.connect()
     }, this.reconnectAfterMs)

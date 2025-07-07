@@ -770,7 +770,9 @@ describe('socket close event', () => {
     assert.strictEqual(accessToken.callCount, 1)
     expect(socket.accessTokenValue).toBe(tokens[0])
 
+    // Call the callback and wait for async operations to complete
     await socket.reconnectTimer.callback()
+    await new Promise((resolve) => setTimeout(resolve, 100))
     expect(socket.accessTokenValue).toBe(tokens[1])
     assert.strictEqual(accessToken.callCount, 2)
   })
