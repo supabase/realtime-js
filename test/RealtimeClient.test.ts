@@ -131,6 +131,35 @@ describe('connect with WebSocket', () => {
     socket.connect()
     assert.deepStrictEqual(conn, socket.conn)
   })
+
+  test('handles setAuth errors gracefully during connection', async () => {
+    const errorMessage = 'Token fetch failed'
+    const accessToken = sinon.spy(() => Promise.reject(new Error(errorMessage)))
+    const logSpy = sinon.spy()
+
+    const socketWithError = new RealtimeClient(url, {
+      transport: MockWebSocket,
+      accessToken,
+      logger: logSpy,
+    })
+
+    socketWithError.connect()
+
+    await new Promise((resolve) => setTimeout(() => resolve(undefined), 100))
+
+    // Verify that the error was logged
+    assert.ok(
+      logSpy.calledWith(
+        'error',
+        'error setting auth',
+        sinon.match.instanceOf(Error)
+      )
+    )
+
+    // Verify that the connection was still established despite the error
+    assert.ok(socketWithError.conn, 'connection should still exist')
+    assert.equal(socketWithError.conn!.url, socketWithError.endpointURL())
+  })
 })
 
 describe('disconnect', () => {
