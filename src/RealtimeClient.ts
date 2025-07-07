@@ -186,6 +186,7 @@ export default class RealtimeClient {
       ? options.decode
       : this.serializer.decode.bind(this.serializer)
     this.reconnectTimer = new Timer(async () => {
+      await this.setAuth()
       this.disconnect()
       this.connect()
     }, this.reconnectAfterMs)
@@ -216,6 +217,8 @@ export default class RealtimeClient {
     }
     this.conn = new this.transport(this.endpointURL()) as WebSocketLike
     this.setupConnection()
+    // Set the token on connect
+    setTimeout(() => this.setAuth(), 0)
   }
 
   /**
