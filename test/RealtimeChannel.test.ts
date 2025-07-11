@@ -169,7 +169,7 @@ describe('constructor', () => {
 
 describe('subscribe', () => {
   beforeEach(() => {
-    channel = socket.channel('topic', { one: 'two' })
+    channel = socket.channel('topic')
   })
 
   afterEach(() => {
@@ -208,6 +208,7 @@ describe('subscribe', () => {
 
     assert.equal(channel.state, CHANNEL_STATES.joining)
   })
+
   test('updates join push payload access token', () => {
     socket.accessTokenValue = 'token123'
 
@@ -221,8 +222,21 @@ describe('subscribe', () => {
         postgres_changes: [],
         private: false,
       },
-      one: 'two',
     })
+  })
+
+  test('triggers setAuth when socket is not connected', async () => {
+    const setAuthSpy = sinon.spy(socket, 'setAuth')
+    channel.subscribe()
+    clock.tick(0)
+    assert.ok(setAuthSpy.calledOnce)
+
+    socket.accessTokenValue = 'new_token_123'
+    socket.disconnect()
+    channel.subscribe()
+    clock.tick(0)
+    assert.ok(setAuthSpy.calledTwice)
+    assert.equal(setAuthSpy.secondCall.args[0], 'new_token_123')
   })
 
   test('triggers socket push with default channel params', () => {
@@ -247,7 +261,6 @@ describe('subscribe', () => {
             postgres_changes: [],
             private: false,
           },
-          one: 'two',
         },
         ref: defaultRef,
         join_ref: defaultRef,
@@ -325,7 +338,6 @@ describe('subscribe', () => {
             ],
             private: false,
           },
-          one: 'two',
         },
         ref: defaultRef,
         join_ref: defaultRef,
