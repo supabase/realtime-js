@@ -1,6 +1,6 @@
 import assert from 'assert'
 import sinon from 'sinon'
-import crypto from 'crypto'
+import crypto, { randomUUID } from 'crypto'
 import { describe, beforeEach, afterEach, test, vi } from 'vitest'
 
 import RealtimeClient from '../src/RealtimeClient'
@@ -226,17 +226,24 @@ describe('subscribe', () => {
   })
 
   test('triggers setAuth when socket is not connected', async () => {
-    const setAuthSpy = sinon.spy(socket, 'setAuth')
-    channel.subscribe()
-    clock.tick(0)
-    assert.ok(setAuthSpy.calledOnce)
+    clock.restore() // Use real timers for this test
+    let callCount = 0
+    const tokens = [randomUUID(), randomUUID()]
+    const accessToken = async () => tokens[callCount++]
+    const testSocket = new RealtimeClient(url, {
+      accessToken: accessToken,
+      transport: WebSocket,
+    })
+    const channel = testSocket.channel('topic')
 
-    socket.accessTokenValue = 'new_token_123'
-    socket.disconnect()
     channel.subscribe()
-    clock.tick(0)
-    assert.ok(setAuthSpy.calledTwice)
-    assert.equal(setAuthSpy.secondCall.args[0], 'new_token_123')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    assert.equal(channel.socket.accessTokenValue, tokens[0])
+
+    testSocket.disconnect()
+    channel.subscribe()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    assert.equal(channel.socket.accessTokenValue, tokens[1])
   })
 
   test('triggers socket push with default channel params', () => {
