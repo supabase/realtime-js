@@ -564,6 +564,7 @@ export default class RealtimeChannel {
    */
   teardown() {
     this.pushBuffer.forEach((push: Push) => push.destroy())
+    this.pushBuffer = [] // Clear buffer after destroying pushes
     this.rejoinTimer && clearTimeout(this.rejoinTimer.timer)
     this.joinPush.destroy()
   }
@@ -750,12 +751,15 @@ export default class RealtimeChannel {
   _off(type: string, filter: { [key: string]: any }) {
     const typeLower = type.toLocaleLowerCase()
 
-    this.bindings[typeLower] = this.bindings[typeLower].filter((bind) => {
-      return !(
-        bind.type?.toLocaleLowerCase() === typeLower &&
-        RealtimeChannel.isEqual(bind.filter, filter)
-      )
-    })
+    // Check if bindings exist for this type to avoid errors
+    if (this.bindings[typeLower]) {
+      this.bindings[typeLower] = this.bindings[typeLower].filter((bind) => {
+        return !(
+          bind.type?.toLocaleLowerCase() === typeLower &&
+          RealtimeChannel.isEqual(bind.filter, filter)
+        )
+      })
+    }
     return this
   }
 

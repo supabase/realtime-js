@@ -97,6 +97,7 @@ export default class Push {
   destroy() {
     this._cancelRefEvent()
     this._cancelTimeout()
+    this.sent = false
   }
 
   private _cancelRefEvent() {
