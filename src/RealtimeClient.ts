@@ -272,6 +272,10 @@ export default class RealtimeClient {
   async removeChannel(
     channel: RealtimeChannel
   ): Promise<RealtimeRemoveChannelResponse> {
+    // Remove the channel from the array first to avoid race condition
+    // where the length check happens before the async removal in _onClose
+    this._remove(channel)
+    
     const status = await channel.unsubscribe()
 
     if (this.channels.length === 0) {
@@ -498,7 +502,11 @@ export default class RealtimeClient {
    * @internal
    */
   _remove(channel: RealtimeChannel) {
-    this.channels = this.channels.filter((c) => c.topic !== channel.topic)
+    // Use findIndex to ensure we only remove the exact channel instance
+    const index = this.channels.findIndex((c) => c === channel)
+    if (index !== -1) {
+      this.channels.splice(index, 1)
+    }
   }
 
   /**

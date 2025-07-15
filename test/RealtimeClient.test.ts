@@ -977,6 +977,81 @@ describe('log operations', () => {
   })
 })
 
+describe('removeChannel', () => {
+  test('should properly handle channel removal and disconnect logic', async () => {
+    // Create a socket without connecting to avoid WebSocket mock issues
+    const testSocket = new RealtimeClient(url, {
+      transport: MockWebSocket,
+      timeout: 1000,
+    })
+    
+    // Mock isConnected to return true
+    vi.spyOn(testSocket, 'isConnected').mockReturnValue(true)
+    
+    const channel1 = testSocket.channel('topic1')
+    const channel2 = testSocket.channel('topic2')
+    
+    // Mock channel unsubscribe to resolve immediately
+    vi.spyOn(channel1, 'unsubscribe').mockResolvedValue('ok')
+    vi.spyOn(channel2, 'unsubscribe').mockResolvedValue('ok')
+    
+    // Spy on disconnect method
+    const disconnectSpy = sinon.spy(testSocket, 'disconnect')
+    
+    // Initially should have 2 channels
+    assert.equal(testSocket.channels.length, 2, 'Should start with 2 channels')
+    
+    // Remove first channel - should NOT disconnect
+    await testSocket.removeChannel(channel1)
+    assert.ok(disconnectSpy.notCalled, 'Should not disconnect when channels remain')
+    assert.equal(testSocket.channels.length, 1, 'Should have 1 channel remaining')
+    
+    // Remove second channel - should disconnect
+    await testSocket.removeChannel(channel2)
+    assert.equal(testSocket.channels.length, 0, 'Should have 0 channels remaining')
+    assert.ok(disconnectSpy.calledOnce, 'Should disconnect when all channels removed')
+  })
+  
+  test('should handle race condition properly', async () => {
+    // Create a socket without connecting to avoid WebSocket mock issues
+    const testSocket = new RealtimeClient(url, {
+      transport: MockWebSocket,
+      timeout: 1000,
+    })
+    
+    // Mock isConnected to return true
+    vi.spyOn(testSocket, 'isConnected').mockReturnValue(true)
+    
+    const channel1 = testSocket.channel('topic1')
+    const channel2 = testSocket.channel('topic2')
+    
+    // Mock channel unsubscribe to resolve after a delay
+    vi.spyOn(channel1, 'unsubscribe').mockImplementation(() => 
+      new Promise(resolve => setTimeout(() => resolve('ok'), 10))
+    )
+    vi.spyOn(channel2, 'unsubscribe').mockResolvedValue('ok')
+    
+    // Spy on disconnect method
+    const disconnectSpy = sinon.spy(testSocket, 'disconnect')
+    
+    // Initially should have 2 channels
+    assert.equal(testSocket.channels.length, 2, 'Should start with 2 channels')
+    
+    // Start removing first channel (async)
+    const removePromise = testSocket.removeChannel(channel1)
+    
+    // Channel should be removed immediately to avoid race condition
+    assert.equal(testSocket.channels.length, 1, 'Channel should be removed immediately')
+    
+    // Wait for unsubscribe to complete
+    await removePromise
+    
+    // Should not disconnect because channel2 still exists
+    assert.ok(disconnectSpy.notCalled, 'Should not disconnect when other channels exist')
+    assert.equal(testSocket.channels.length, 1, 'Should have 1 channel remaining')
+  })
+})
+
 describe('worker', () => {
   let mockServer: Server
   let client: RealtimeClient
