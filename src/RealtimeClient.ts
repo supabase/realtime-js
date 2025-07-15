@@ -128,6 +128,7 @@ export default class RealtimeClient {
   worker?: boolean
   workerUrl?: string
   workerRef?: Worker
+  workerObjectUrl?: string
 
   /**
    * Initializes the Socket.
@@ -255,6 +256,9 @@ export default class RealtimeClient {
       this.heartbeatTimer && clearInterval(this.heartbeatTimer)
       this.reconnectTimer.reset()
       this.channels.forEach((channel) => channel.teardown())
+      
+      // Clean up worker resources
+      this._terminateWorker()
     }
   }
 
@@ -600,10 +604,11 @@ export default class RealtimeClient {
       this.log('worker', `starting default worker`)
     }
     const objectUrl = this._workerObjectUrl(this.workerUrl!)
+    this.workerObjectUrl = objectUrl
     this.workerRef = new Worker(objectUrl)
     this.workerRef.onerror = (error) => {
       this.log('worker', 'worker error', (error as ErrorEvent).message)
-      this.workerRef!.terminate()
+      this._terminateWorker()
     }
     this.workerRef.onmessage = (event) => {
       if (event.data.event === 'keepAlive') {
@@ -660,5 +665,19 @@ export default class RealtimeClient {
       result_url = URL.createObjectURL(blob)
     }
     return result_url
+  }
+
+  /** @internal */
+  private _terminateWorker() {
+    if (this.workerRef) {
+      this.workerRef.terminate()
+      this.workerRef = undefined
+    }
+    
+    // Revoke blob URL to prevent memory leak
+    if (this.workerObjectUrl && !this.workerUrl) {
+      URL.revokeObjectURL(this.workerObjectUrl)
+      this.workerObjectUrl = undefined
+    }
   }
 }
