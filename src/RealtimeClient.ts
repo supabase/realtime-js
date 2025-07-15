@@ -416,7 +416,7 @@ export default class RealtimeClient {
         'heartbeat timeout. Attempting to re-establish connection'
       )
       this.heartbeatCallback('timeout')
-      this.conn?.close(WS_CLOSE_NORMAL, 'hearbeat timeout')
+      this.conn?.close(WS_CLOSE_NORMAL, 'heartbeat timeout')
       return
     }
     this.pendingHeartbeatRef = this._makeRef()
