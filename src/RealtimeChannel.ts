@@ -532,6 +532,9 @@ export default class RealtimeChannel {
    */
   unsubscribe(timeout = this.timeout): Promise<'ok' | 'timed out' | 'error'> {
     this.state = CHANNEL_STATES.leaving
+    // Reset rejoin timer when leaving to prevent infinite loop
+    this.rejoinTimer.reset()
+    
     const onClose = () => {
       this.socket.log('channel', `leave ${this.topic}`)
       this._trigger(CHANNEL_EVENTS.close, 'leave', this._joinRef())
@@ -790,6 +793,11 @@ export default class RealtimeChannel {
 
   /** @internal */
   private _rejoinUntilConnected() {
+    // Don't schedule timeout if channel is in final state
+    if (this._isLeaving() || this._isClosed()) {
+      return
+    }
+    
     this.rejoinTimer.scheduleTimeout()
     if (this.socket.isConnected()) {
       this._rejoin()
