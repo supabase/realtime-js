@@ -217,6 +217,16 @@ export default class RealtimeChannel {
     if (!this.socket.isConnected()) {
       this.socket.connect()
     }
+    
+    // Always register callbacks for error and close events, regardless of state
+    if (callback) {
+      this._onError((e: Error) =>
+        callback(REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR, e)
+      )
+      this._onClose(() => callback(REALTIME_SUBSCRIBE_STATES.CLOSED))
+    }
+    
+    // Only initiate join process if channel is closed
     if (this.state == CHANNEL_STATES.closed) {
       const {
         config: { broadcast, presence, private: isPrivate },
@@ -238,22 +248,19 @@ export default class RealtimeChannel {
         accessTokenPayload.access_token = this.socket.accessTokenValue
       }
 
-      this._onError((e: Error) =>
-        callback?.(REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR, e)
-      )
-
-      this._onClose(() => callback?.(REALTIME_SUBSCRIBE_STATES.CLOSED))
-
       this.updateJoinPayload({ ...{ config }, ...accessTokenPayload })
 
       this.joinedOnce = true
       this._rejoin(timeout)
+    }
 
+    // Register callback for successful join, regardless of current state
+    if (callback) {
       this.joinPush
         .receive('ok', async ({ postgres_changes }: PostgresChangesFilters) => {
           this.socket.setAuth()
           if (postgres_changes === undefined) {
-            callback?.(REALTIME_SUBSCRIBE_STATES.SUBSCRIBED)
+            callback(REALTIME_SUBSCRIBE_STATES.SUBSCRIBED)
             return
           } else {
             const clientPostgresBindings = this.bindings.postgres_changes
@@ -283,7 +290,7 @@ export default class RealtimeChannel {
                 this.unsubscribe()
                 this.state = CHANNEL_STATES.errored
 
-                callback?.(
+                callback(
                   REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR,
                   new Error(
                     'mismatch between server and client bindings for postgres changes'
@@ -295,13 +302,13 @@ export default class RealtimeChannel {
 
             this.bindings.postgres_changes = newPostgresBindings
 
-            callback && callback(REALTIME_SUBSCRIBE_STATES.SUBSCRIBED)
+            callback(REALTIME_SUBSCRIBE_STATES.SUBSCRIBED)
             return
           }
         })
         .receive('error', (error: { [key: string]: any }) => {
           this.state = CHANNEL_STATES.errored
-          callback?.(
+          callback(
             REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR,
             new Error(
               JSON.stringify(Object.values(error).join(', ') || 'error')
@@ -310,7 +317,7 @@ export default class RealtimeChannel {
           return
         })
         .receive('timeout', () => {
-          callback?.(REALTIME_SUBSCRIBE_STATES.TIMED_OUT)
+          callback(REALTIME_SUBSCRIBE_STATES.TIMED_OUT)
           return
         })
     }

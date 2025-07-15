@@ -378,10 +378,23 @@ export default class RealtimeClient {
    * @param token A JWT string to override the token set on the client.
    */
   async setAuth(token: string | null = null): Promise<void> {
-    let tokenToSend =
-      token ||
-      (this.accessToken && (await this.accessToken())) ||
-      this.accessTokenValue
+    let tokenToSend = token
+
+    // Only try to get token from callback if no token was provided
+    if (tokenToSend === null && this.accessToken) {
+      try {
+        tokenToSend = await this.accessToken()
+      } catch (error) {
+        // Log error but don't throw - fall back to existing token
+        this.log('error', 'Error fetching access token', error)
+        tokenToSend = this.accessTokenValue
+      }
+    }
+
+    // Use existing token value if no token was provided and callback failed/not available
+    if (tokenToSend === null) {
+      tokenToSend = this.accessTokenValue
+    }
 
     if (this.accessTokenValue != tokenToSend) {
       this.accessTokenValue = tokenToSend
