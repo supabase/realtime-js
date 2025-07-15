@@ -425,11 +425,15 @@ export default class RealtimeChannel {
       this.state === CHANNEL_STATES.joined &&
       type === REALTIME_LISTEN_TYPES.PRESENCE
     ) {
-      this.socket.log(
-        'channel',
-        `resubscribe to ${this.topic} due to change in presence callbacks on joined channel`
-      )
-      this.unsubscribe().then(() => this.subscribe())
+      // Only resubscribe if presence is being enabled for the first time
+      const presenceWasEnabled = !!this.bindings[REALTIME_LISTEN_TYPES.PRESENCE]?.length
+      if (!presenceWasEnabled) {
+        this.socket.log(
+          'channel',
+          `resubscribe to ${this.topic} due to enabling presence on joined channel`
+        )
+        this.unsubscribe().then(() => this.subscribe())
+      }
     }
     return this._on(type, filter, callback)
   }
