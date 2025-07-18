@@ -165,12 +165,10 @@ export default class RealtimeClient {
 
     if (options?.heartbeatIntervalMs)
       this.heartbeatIntervalMs = options.heartbeatIntervalMs
-
-    const accessTokenValue = options?.params?.apikey
-    if (accessTokenValue) {
-      this.accessTokenValue = accessTokenValue
-      this.apiKey = accessTokenValue
+    if (!options?.params?.apikey) {
+      throw new Error('API key is required to connect to Realtime')
     }
+    this.apiKey = options?.params?.apikey
 
     this.reconnectAfterMs = options?.reconnectAfterMs
       ? options.reconnectAfterMs

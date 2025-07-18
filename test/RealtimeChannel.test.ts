@@ -30,6 +30,7 @@ beforeEach(() => {
   socket = new RealtimeClient(url, {
     transport: WebSocket,
     timeout: defaultTimeout,
+    params: { apikey: '123456789' },
   })
 })
 
@@ -44,6 +45,7 @@ describe('constructor', () => {
     const socket = new RealtimeClient(url, {
       transport: WebSocket,
       timeout: 1234,
+      params: { apikey: '123456789' },
     })
     channel = new RealtimeChannel('topic', { config: {} }, socket)
 
@@ -67,6 +69,7 @@ describe('constructor', () => {
     const socket = new RealtimeClient(url, {
       transport: WebSocket,
       timeout: 1234,
+      params: { apikey: '123456789' },
     })
 
     channel = new RealtimeChannel('topic', { config: {} }, socket)
@@ -88,6 +91,7 @@ describe('constructor', () => {
     const socket = new RealtimeClient(url, {
       transport: WebSocket,
       timeout: 1234,
+      params: { apikey: '123456789' },
     })
     channel = new RealtimeChannel(
       'topic',
@@ -112,6 +116,7 @@ describe('constructor', () => {
     const socket = new RealtimeClient(url, {
       transport: WebSocket,
       timeout: 1234,
+      params: { apikey: '123456789' },
     })
 
     channel = new RealtimeChannel(
@@ -141,6 +146,7 @@ describe('constructor', () => {
     const socket = new RealtimeClient(url, {
       transport: WebSocket,
       timeout: 1234,
+      params: { apikey: '123456789' },
     })
 
     channel = new RealtimeChannel(
@@ -233,6 +239,7 @@ describe('subscribe', () => {
     const testSocket = new RealtimeClient(url, {
       accessToken: accessToken,
       transport: WebSocket,
+      params: { apikey: '123456789' },
     })
     const channel = testSocket.channel('topic')
 
@@ -748,6 +755,7 @@ describe('onError', () => {
   beforeEach(() => {
     socket = new RealtimeClient('ws://example.com/socket', {
       timeout: defaultTimeout,
+      params: { apikey: '123456789' },
     })
     sinon.stub(socket, 'isConnected').callsFake(() => true)
     sinon.stub(socket, 'push').callsFake(() => true)
@@ -846,6 +854,7 @@ describe('onClose', () => {
   beforeEach(() => {
     socket = new RealtimeClient('ws://example.com/socket', {
       timeout: defaultTimeout,
+      params: { apikey: '123456789' },
     })
     sinon.stub(socket, 'isConnected').callsFake(() => true)
     sinon.stub(socket, 'push').callsFake(() => true)
@@ -906,7 +915,9 @@ describe('onClose', () => {
 
 describe('onMessage', () => {
   beforeEach(() => {
-    socket = new RealtimeClient('ws://example.com/socket')
+    socket = new RealtimeClient('ws://example.com/socket', {
+      params: { apikey: '123456789' },
+    })
 
     channel = socket.channel('topic')
   })
@@ -926,7 +937,9 @@ describe('onMessage', () => {
 
 describe('canPush', () => {
   beforeEach(() => {
-    socket = new RealtimeClient('ws://example.com/socket')
+    socket = new RealtimeClient('ws://example.com/socket', {
+      params: { apikey: '123456789' },
+    })
 
     channel = socket.channel('topic')
   })
@@ -965,7 +978,9 @@ describe('canPush', () => {
 
 describe('on', () => {
   beforeEach(() => {
-    socket = new RealtimeClient('ws://example.com/socket')
+    socket = new RealtimeClient('ws://example.com/socket', {
+      params: { apikey: '123456789' },
+    })
     sinon.stub(socket, '_makeRef').callsFake(() => defaultRef)
     channel = socket.channel('topic')
     clock.restore()
@@ -1203,6 +1218,7 @@ describe('leave', () => {
     channel.unsubscribe()
     socket = new RealtimeClient('ws://example.com/socket', {
       timeout: defaultTimeout,
+      params: { apikey: '123456789' },
     })
     sinon.stub(socket, 'isConnected').callsFake(() => true)
     socketSpy = sinon.stub(socket, 'push')
@@ -1379,7 +1395,45 @@ describe('send', () => {
     const expectedBody = {
       method: 'POST',
       headers: {
-        Authorization: 'Bearer abc123',
+        Authorization: '',
+        apikey: 'abc123',
+        'Content-Type': 'application/json',
+      },
+      body: '{"messages":[{"topic":"topic","event":"test","private":true}]}',
+      signal: new AbortController().signal,
+    }
+
+    const expectedUrl = url
+      .replace('/socket', '')
+      .replace('wss', 'https')
+      .concat('/api/broadcast')
+
+    const res = await channel.send({
+      type: 'broadcast',
+      event: 'test',
+      id: 'u123',
+    })
+
+    assert.equal(res, 'ok')
+    assert.ok(fetchStub.calledOnce)
+    assert.ok(fetchStub.calledWith(expectedUrl, expectedBody))
+  })
+
+  test('sends message via http request to Broadcast endpoint when not subscribed to channel with access token', async () => {
+    const fetchStub = sinon.stub().resolves(new Response())
+    const socket = new RealtimeClient(url, {
+      fetch: fetchStub as unknown as typeof fetch,
+      timeout: defaultTimeout,
+      params: { apikey: 'abc123' },
+      accessToken: () => Promise.resolve('access_token_123'),
+    })
+    await socket.setAuth()
+    const channel = socket.channel('topic', { config: { private: true } })
+
+    const expectedBody = {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer access_token_123',
         apikey: 'abc123',
         'Content-Type': 'application/json',
       },
@@ -1501,14 +1555,6 @@ describe('trigger', () => {
         '1'
       )
     )
-  })
-
-  test('sets apikey as initial accessToken', () => {
-    const client = new RealtimeClient('ws://example.com/socket', {
-      timeout: defaultTimeout,
-      params: { apikey: '123' },
-    })
-    assert.equal(client.accessTokenValue, '123')
   })
 })
 
