@@ -1,27 +1,22 @@
 import assert from 'assert'
 import { describe, beforeEach, afterEach, test } from 'vitest'
-import RealtimeClient from '../src/RealtimeClient'
 import { WebSocket } from 'mock-socket'
-
-const url = 'ws://localhost:4000/socket'
+import { createTestContext, cleanupTestContext, TestContext } from './helpers/testHelpers'
 
 describe('Reconnection Logic Tests', () => {
-  let socket: RealtimeClient
+  let context: TestContext
 
   beforeEach(() => {
-    socket = new RealtimeClient(url, {
-      transport: WebSocket,
-      params: { apikey: '123456789' },
-    })
+    context = createTestContext()
   })
 
   afterEach(() => {
-    socket.disconnect()
+    cleanupTestContext(context)
   })
 
   describe('Network failure scenarios', () => {
     test('should handle network failure and schedule reconnection', async () => {
-      socket.connect()
+      context.socket.connect()
       
       // Simulate network failure by closing with abnormal code
       const closeEvent = new CloseEvent('close', {
@@ -30,47 +25,47 @@ describe('Reconnection Logic Tests', () => {
         wasClean: false,
       })
       
-      socket.conn?.onclose?.(closeEvent)
+      context.socket.conn?.onclose?.(closeEvent)
       
       // Verify reconnection is scheduled
-      assert.ok(socket.reconnectTimer.timer)
+      assert.ok(context.socket.reconnectTimer.timer)
     })
 
     test('should not schedule reconnection on manual disconnect', () => {
-      socket.connect()
-      socket.disconnect()
+      context.socket.connect()
+      context.socket.disconnect()
       
       // Verify no reconnection is scheduled
-      assert.equal(socket.reconnectTimer.timer, undefined)
+      assert.equal(context.socket.reconnectTimer.timer, undefined)
     })
   })
 
   describe('Connection state management', () => {
     test('should track connection states correctly', () => {
       // @ts-ignore - accessing private property for testing
-      assert.equal(socket._isConnecting, false)
+      assert.equal(context.socket._isConnecting, false)
       // @ts-ignore - accessing private property for testing
-      assert.equal(socket._isDisconnecting, false)
+      assert.equal(context.socket._isDisconnecting, false)
       
-      socket.connect()
+      context.socket.connect()
       // @ts-ignore - accessing private property for testing
-      assert.equal(socket._isConnecting, true)
+      assert.equal(context.socket._isConnecting, true)
       
-      socket.disconnect()
+      context.socket.disconnect()
       // @ts-ignore - accessing private property for testing
-      assert.equal(socket._isDisconnecting, true)
+      assert.equal(context.socket._isDisconnecting, true)
     })
 
     test('should handle connection state transitions on WebSocket events', () => {
-      socket.connect()
+      context.socket.connect()
       // @ts-ignore - accessing private property for testing
-      assert.equal(socket._isConnecting, true)
+      assert.equal(context.socket._isConnecting, true)
       
       // Simulate connection open
       const openEvent = new Event('open')
-      socket.conn?.onopen?.(openEvent)
+      context.socket.conn?.onopen?.(openEvent)
       // @ts-ignore - accessing private property for testing
-      assert.equal(socket._isConnecting, false)
+      assert.equal(context.socket._isConnecting, false)
       
       // Simulate connection close
       const closeEvent = new CloseEvent('close', {
@@ -78,79 +73,79 @@ describe('Reconnection Logic Tests', () => {
         reason: 'Normal close',
         wasClean: true,
       })
-      socket.conn?.onclose?.(closeEvent)
+      context.socket.conn?.onclose?.(closeEvent)
       // @ts-ignore - accessing private property for testing
-      assert.equal(socket._isDisconnecting, false)
+      assert.equal(context.socket._isDisconnecting, false)
     })
   })
 
   describe('Race condition prevention', () => {
     test('should prevent multiple simultaneous connection attempts', () => {
       // Make multiple rapid connection attempts
-      socket.connect()
-      socket.connect()
-      socket.connect()
+      context.socket.connect()
+      context.socket.connect()
+      context.socket.connect()
       
       // Should only have one connection attempt
       // @ts-ignore - accessing private property for testing
-      assert.equal(socket._isConnecting, true)
-      assert.ok(socket.conn)
+      assert.equal(context.socket._isConnecting, true)
+      assert.ok(context.socket.conn)
     })
 
     test('should prevent connection during disconnection', () => {
-      socket.connect()
-      socket.disconnect()
+      context.socket.connect()
+      context.socket.disconnect()
       
       // Try to connect while disconnecting
-      socket.connect()
+      context.socket.connect()
       
       // Should not interfere with disconnection
       // @ts-ignore - accessing private property for testing
-      assert.equal(socket._isDisconnecting, true)
+      assert.equal(context.socket._isDisconnecting, true)
     })
   })
 
   describe('Heartbeat timeout handling', () => {
     test('should handle heartbeat timeout with reconnection fallback', async () => {
-      socket.connect()
+      context.socket.connect()
       
       // Simulate heartbeat timeout
-      socket.pendingHeartbeatRef = 'test-ref'
+      context.socket.pendingHeartbeatRef = 'test-ref'
       
       // Mock connection to prevent actual WebSocket close
       const mockConn = {
         close: () => {},
         readyState: WebSocket.OPEN,
       }
-      socket.conn = mockConn as any
+      context.socket.conn = mockConn as any
       
       // Trigger heartbeat - should detect timeout
-      await socket.sendHeartbeat()
+      await context.socket.sendHeartbeat()
       
       // Should have reset manual disconnect flag
       // @ts-ignore - accessing private property for testing
-      assert.equal(socket._wasManualDisconnect, false)
+      assert.equal(context.socket._wasManualDisconnect, false)
     })
   })
 
   describe('Reconnection timer logic', () => {
     test('should use delay in reconnection callback', async () => {
-      socket.connect()
+      context.socket.connect()
       
       // Mock isConnected to return false initially
-      const originalIsConnected = socket.isConnected
-      socket.isConnected = () => false
+      const originalIsConnected = context.socket.isConnected
+      context.socket.isConnected = () => false
       
       // Track connect calls
       let connectCalls = 0
-      const originalConnect = socket.connect
-      socket.connect = () => {
+      const originalConnect = context.socket.connect
+      context.socket.connect = () => {
         connectCalls++
-        return originalConnect.call(socket)
+        return originalConnect.call(context.socket)
       }
       
       // Trigger reconnection
-      socket.reconnectTimer.callback()
+      context.socket.reconnectTimer.callback()
       
       // Should not have called connect immediately
       assert.equal(connectCalls, 0)
@@ -162,8 +157,8 @@ describe('Reconnection Logic Tests', () => {
       assert.equal(connectCalls, 1)
       
       // Restore original methods
-      socket.isConnected = originalIsConnected
-      socket.connect = originalConnect
+      context.socket.isConnected = originalIsConnected
+      context.socket.connect = originalConnect
     })
   })
 })

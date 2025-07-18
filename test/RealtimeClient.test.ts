@@ -165,7 +165,7 @@ describe('connect with WebSocket', () => {
     assert.ok(
       logSpy.calledWith(
         'error',
-        'error setting auth',
+        'error setting auth in connect',
         sinon.match.instanceOf(Error)
       )
     )
