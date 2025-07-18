@@ -128,6 +128,9 @@ export default class RealtimeClient {
   worker?: boolean
   workerUrl?: string
   workerRef?: Worker
+  private _isConnecting: boolean = false
+  private _isDisconnecting: boolean = false
+  private _wasManualDisconnect: boolean = false
 
   /**
    * Initializes the Socket.
@@ -183,9 +186,12 @@ export default class RealtimeClient {
     this.decode = options?.decode
       ? options.decode
       : this.serializer.decode.bind(this.serializer)
-    this.reconnectTimer = new Timer(async () => {
-      this.disconnect()
-      this.connect()
+    this.reconnectTimer = new Timer(() => {
+      setTimeout(() => {
+        if (!this.isConnected()) {
+          this.connect()
+        }
+      }, 10)
     }, this.reconnectAfterMs)
 
     this.fetch = this._resolveFetch(options?.fetch)
@@ -209,13 +215,19 @@ export default class RealtimeClient {
         this.log('error', 'error setting auth', e)
       })
     }, 0)
-    if (this.conn) {
+
+    if (this._isConnecting || (this.conn && this.isConnected())) {
       return
     }
+
+    this._isConnecting = true
+    this._wasManualDisconnect = false
+
     if (!this.transport) {
       this.transport = WebSocket
     }
     if (!this.transport) {
+      this._isConnecting = false
       throw new Error('No transport provided')
     }
     this.conn = new this.transport(this.endpointURL()) as WebSocketLike
@@ -240,8 +252,18 @@ export default class RealtimeClient {
    * @param reason A custom reason for the disconnect.
    */
   disconnect(code?: number, reason?: string): void {
+    if (this._isDisconnecting) {
+      return
+    }
+
+    this._isDisconnecting = true
+    this._wasManualDisconnect = true
+
     if (this.conn) {
-      this.conn.onclose = function () {} // noop
+      this.conn.onclose = () => {
+        this._isDisconnecting = false
+      }
+
       if (code) {
         this.conn.close(code, reason ?? '')
       } else {
@@ -253,6 +275,8 @@ export default class RealtimeClient {
       this.heartbeatTimer && clearInterval(this.heartbeatTimer)
       this.reconnectTimer.reset()
       this.channels.forEach((channel) => channel.teardown())
+    } else {
+      this._isDisconnecting = false
     }
   }
 
@@ -410,7 +434,18 @@ export default class RealtimeClient {
         'heartbeat timeout. Attempting to re-establish connection'
       )
       this.heartbeatCallback('timeout')
-      this.conn?.close(WS_CLOSE_NORMAL, 'hearbeat timeout')
+
+      // Force reconnection by closing and scheduling reconnect
+      this._wasManualDisconnect = false
+      this.conn?.close(WS_CLOSE_NORMAL, 'heartbeat timeout')
+
+      // Ensure reconnection happens even if onclose doesn't fire
+      setTimeout(() => {
+        if (!this.isConnected()) {
+          this.reconnectTimer.scheduleTimeout()
+        }
+      }, 100)
+
       return
     }
     this.pendingHeartbeatRef = this._makeRef()
@@ -421,7 +456,11 @@ export default class RealtimeClient {
       ref: this.pendingHeartbeatRef,
     })
     this.heartbeatCallback('sent')
-    await this.setAuth()
+
+    // Keep existing setAuth call for backward compatibility
+    this.setAuth().catch((e) => {
+      this.log('error', 'error setting auth in heartbeat', e)
+    })
   }
 
   onHeartbeat(callback: (status: HeartbeatStatus) => void): void {
@@ -547,6 +586,7 @@ export default class RealtimeClient {
 
   /** @internal */
   private _onConnOpen() {
+    this._isConnecting = false
     this.log('transport', `connected to ${this.endpointURL()}`)
     this.flushSendBuffer()
     this.reconnectTimer.reset()
@@ -594,15 +634,23 @@ export default class RealtimeClient {
   }
   /** @internal */
   private _onConnClose(event: any) {
+    this._isConnecting = false
+    this._isDisconnecting = false
     this.log('transport', 'close', event)
     this._triggerChanError()
     this.heartbeatTimer && clearInterval(this.heartbeatTimer)
-    this.reconnectTimer.scheduleTimeout()
+
+    // Only schedule reconnection if it wasn't a manual disconnect
+    if (!this._wasManualDisconnect) {
+      this.reconnectTimer.scheduleTimeout()
+    }
+
     this.stateChangeCallbacks.close.forEach((callback) => callback(event))
   }
 
   /** @internal */
   private _onConnError(error: Event) {
+    this._isConnecting = false
     this.log('transport', `${error}`)
     this._triggerChanError()
     this.stateChangeCallbacks.error.forEach((callback) => callback(error))
