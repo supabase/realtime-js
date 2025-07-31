@@ -607,6 +607,7 @@ export default class RealtimeClient {
   private _onConnError(error: Event) {
     this.log('transport', `${error}`)
     this._triggerChanError()
+    this.heartbeatCallback('error')
     this.stateChangeCallbacks.error.forEach((callback) => callback(error))
   }
 
