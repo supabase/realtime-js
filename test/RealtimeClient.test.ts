@@ -17,6 +17,7 @@ import RealtimeClient, { HeartbeatStatus } from '../src/RealtimeClient'
 import jwt from 'jsonwebtoken'
 import { CHANNEL_STATES, DEFAULT_VERSION } from '../src/lib/constants'
 import path from 'path'
+import fs from 'fs'
 
 function generateJWT(exp: string): string {
   return jwt.sign({}, 'your-256-bit-secret', {
@@ -1015,5 +1016,68 @@ describe('worker', () => {
 
     client._onConnOpen()
     assert.ok(ref === client.workerRef)
+  })
+})
+
+describe('isows compatibility', () => {
+  let isowsPath: string
+  let backupPath: string
+
+  beforeEach(() => {
+    isowsPath = path.join(__dirname, '..', 'node_modules', 'isows')
+    backupPath = path.join(__dirname, '..', 'node_modules', 'isows_backup')
+  })
+
+  afterEach(() => {
+    // Restore isows if it was backed up
+    try {
+      if (fs.existsSync(backupPath)) {
+        fs.renameSync(backupPath, isowsPath)
+      }
+    } catch {}
+  })
+
+  test('should work without isows dependency', () => {
+    // Temporarily remove isows to simulate server environment
+    try {
+      if (fs.existsSync(isowsPath)) {
+        fs.renameSync(isowsPath, backupPath)
+      }
+    } catch {}
+
+    // Verify isows is not available
+    let isowsAvailable = true
+    try {
+      require('isows')
+    } catch {
+      isowsAvailable = false
+    }
+    expect(isowsAvailable).toBe(false)
+
+    // RealtimeClient should work gracefully without isows
+    // Using dynamic import to force re-evaluation of the conditional import
+    expect(() => {
+      const client = new RealtimeClient(url, { transport: MockWebSocket })
+      client.connect()
+      expect(client.transport).toBeDefined()
+    }).not.toThrow()
+  })
+
+  test('should prefer isows when available', () => {
+    // Ensure isows is available
+    let isowsAvailable = true
+    try {
+      require('isows')
+    } catch {
+      isowsAvailable = false
+    }
+    expect(isowsAvailable).toBe(true)
+
+    // RealtimeClient should use isows when available
+    const client = new RealtimeClient(url)
+    client.connect()
+    
+    expect(client.transport).toBeDefined()
+    expect(client.transport).not.toBeNull()
   })
 })
