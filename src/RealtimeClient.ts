@@ -1,4 +1,11 @@
-import { WebSocket } from 'isows'
+// Conditional import of WebSocket from isows with fallback
+let WebSocket: any
+try {
+  WebSocket = require('isows').WebSocket
+} catch (e) {
+  // isows not available, will use fallback WebSocket
+  WebSocket = null
+}
 
 import {
   CHANNEL_EVENTS,
@@ -215,7 +222,27 @@ export default class RealtimeClient {
       return
     }
     if (!this.transport) {
-      this.transport = WebSocket
+      // Try to use isows WebSocket first, then fallback to environment WebSocket
+      if (WebSocket) {
+        this.transport = WebSocket
+      } else {
+        // Fallback for when isows is not available
+        if (typeof window !== 'undefined' && window.WebSocket) {
+          this.transport = window.WebSocket as any
+        } else if (typeof global !== 'undefined' && (global as any).WebSocket) {
+          this.transport = (global as any).WebSocket
+        } else {
+          // Try to require ws for Node.js environments
+          try {
+            const ws = require('ws')
+            this.transport = ws
+          } catch (wsError) {
+            console.warn(
+              'No WebSocket implementation available. Please provide a custom transport.'
+            )
+          }
+        }
+      }
     }
     if (!this.transport) {
       throw new Error('No transport provided')
