@@ -1,6 +1,4 @@
-import WebSocketFactory, {
-  WebSocketLike as WSLike,
-} from './lib/websocket-factory'
+import WebSocketFactory, { WebSocketLike } from './lib/websocket-factory'
 
 import {
   CHANNEL_EVENTS,
@@ -70,8 +68,6 @@ export interface WebSocketLikeConstructor {
     subprotocols?: string | string[] | undefined
   ): WebSocketLike
 }
-
-export type WebSocketLike = WebSocket
 
 export interface WebSocketLikeError {
   error: any
@@ -203,18 +199,15 @@ export default class RealtimeClient {
     // Establish WebSocket connection
     if (!this.transport) {
       try {
-        this.transport = WebSocketFactory.getWebSocketConstructor()
+        this.conn = WebSocketFactory.createWebSocket(this.endpointURL())
       } catch (error) {
         this._setConnectionState('disconnected')
         throw new Error(`WebSocket not available: ${(error as Error).message}`)
       }
+    } else {
+      // Use custom transport if provided
+      this.conn = new this.transport!(this.endpointURL()) as WebSocketLike
     }
-    if (!this.transport) {
-      this._setConnectionState('disconnected')
-      throw new Error('No transport provided')
-    }
-
-    this.conn = new this.transport!(this.endpointURL()) as WebSocketLike
     this._setupConnectionHandlers()
   }
 
@@ -469,10 +462,16 @@ export default class RealtimeClient {
     if (customFetch) {
       _fetch = customFetch
     } else if (typeof fetch === 'undefined') {
+      // Node.js environment without native fetch
       _fetch = (...args) =>
-        import('@supabase/node-fetch' as any).then(({ default: fetch }) =>
-          fetch(...args)
-        )
+        import('@supabase/node-fetch' as any)
+          .then(({ default: fetch }) => fetch(...args))
+          .catch((error) => {
+            throw new Error(
+              `Failed to load @supabase/node-fetch: ${error.message}. ` +
+                `This is required for HTTP requests in Node.js environments without native fetch.`
+            )
+          })
     } else {
       _fetch = fetch
     }

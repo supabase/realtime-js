@@ -1,5 +1,3 @@
-// websocket-factory.ts
-
 export interface WebSocketLike {
   readonly CONNECTING: number
   readonly OPEN: number
@@ -35,6 +33,32 @@ export interface WebSocketEnvironment {
 }
 
 export class WebSocketFactory {
+  /**
+   * Dynamic require that works in both CJS and ESM environments
+   * Bulletproof against strict ESM environments where require might not be in scope
+   * @private
+   */
+  private static dynamicRequire(moduleId: string): any {
+    try {
+      // Check if we're in a Node.js environment first
+      if (
+        typeof process !== 'undefined' &&
+        process.versions &&
+        process.versions.node
+      ) {
+        // In Node.js, both CJS and ESM support require for dynamic imports
+        // Wrap in try/catch to handle strict ESM environments
+        if (typeof require !== 'undefined') {
+          return require(moduleId)
+        }
+      }
+      return null
+    } catch {
+      // Catches any error from typeof require OR require() call in strict ESM
+      return null
+    }
+  }
+
   private static detectEnvironment(): WebSocketEnvironment {
     if (typeof WebSocket !== 'undefined') {
       return { type: 'native', constructor: WebSocket }
@@ -56,7 +80,8 @@ export class WebSocketFactory {
 
     if (
       typeof globalThis !== 'undefined' &&
-      typeof (globalThis as any).WebSocketPair !== 'undefined'
+      typeof (globalThis as any).WebSocketPair !== 'undefined' &&
+      typeof globalThis.WebSocket === 'undefined'
     ) {
       return {
         type: 'cloudflare',
@@ -92,8 +117,11 @@ export class WebSocketFactory {
           if (typeof globalThis.WebSocket !== 'undefined') {
             return { type: 'native', constructor: globalThis.WebSocket }
           }
-          const { WebSocket: NodeWebSocket } = require('undici')
-          return { type: 'native', constructor: NodeWebSocket }
+          const undici = this.dynamicRequire('undici')
+          if (undici && undici.WebSocket) {
+            return { type: 'native', constructor: undici.WebSocket }
+          }
+          throw new Error('undici not available')
         } catch (err) {
           return {
             type: 'unsupported',
@@ -104,8 +132,12 @@ export class WebSocketFactory {
         }
       }
       try {
-        const ws = require('ws')
-        return { type: 'ws', constructor: ws.WebSocket ?? ws }
+        // Use dynamic require to work in both CJS and ESM environments
+        const ws = this.dynamicRequire('ws')
+        if (ws) {
+          return { type: 'ws', constructor: ws.WebSocket ?? ws }
+        }
+        throw new Error('ws package not available')
       } catch (err) {
         return {
           type: 'unsupported',

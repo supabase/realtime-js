@@ -23,7 +23,7 @@ import RealtimePresence, {
   REALTIME_PRESENCE_LISTEN_EVENTS,
 } from './RealtimePresence'
 import WebSocketFactory, {
-  WebSocketLike as WSLike,
+  WebSocketLike,
 } from './lib/websocket-factory'
 
 export {
@@ -49,5 +49,5 @@ export {
   REALTIME_SUBSCRIBE_STATES,
   REALTIME_CHANNEL_STATES,
   WebSocketFactory,
-  WSLike as WebSocketLike,
+  WebSocketLike,
 }
