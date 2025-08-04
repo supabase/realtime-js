@@ -12,6 +12,11 @@ import type {
 } from './RealtimePresence'
 import * as Transformers from './lib/transformers'
 import { httpEndpointURL } from './lib/transformers'
+import {
+  mergeChannelConfig,
+  shouldEnablePresence,
+  MAX_PUSH_BUFFER_SIZE,
+} from './lib/channel-config'
 
 export type RealtimeChannelOptions = {
   config: {
@@ -101,6 +106,57 @@ export enum REALTIME_LISTEN_TYPES {
   SYSTEM = 'system',
 }
 
+// Consolidated type mapping using conditional types for proper inference
+type RealtimeListenerPayload<
+  TType extends REALTIME_LISTEN_TYPES,
+  TFilter,
+  T = any
+> =
+  // Presence event payloads
+  TType extends REALTIME_LISTEN_TYPES.PRESENCE
+    ? TFilter extends { event: `${REALTIME_PRESENCE_LISTEN_EVENTS.SYNC}` }
+      ? void
+      : TFilter extends { event: `${REALTIME_PRESENCE_LISTEN_EVENTS.JOIN}` }
+      ? RealtimePresenceJoinPayload<T>
+      : TFilter extends { event: `${REALTIME_PRESENCE_LISTEN_EVENTS.LEAVE}` }
+      ? RealtimePresenceLeavePayload<T>
+      : never
+    : // Postgres changes payloads
+    TType extends REALTIME_LISTEN_TYPES.POSTGRES_CHANGES
+    ? TFilter extends RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.ALL}`>
+      ? RealtimePostgresChangesPayload<T>
+      : TFilter extends RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.INSERT}`>
+      ? RealtimePostgresInsertPayload<T>
+      : TFilter extends RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.UPDATE}`>
+      ? RealtimePostgresUpdatePayload<T>
+      : TFilter extends RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.DELETE}`>
+      ? RealtimePostgresDeletePayload<T>
+      : never
+    : // Broadcast payloads
+    TType extends REALTIME_LISTEN_TYPES.BROADCAST
+    ? {
+        type: `${REALTIME_LISTEN_TYPES.BROADCAST}`
+        event: string
+        [key: string]: any
+      }
+    : // System payloads
+    TType extends REALTIME_LISTEN_TYPES.SYSTEM
+    ? any
+    : // Fallback
+      any
+
+// Valid filter types for each listener type
+type RealtimeListenerFilter<TType extends REALTIME_LISTEN_TYPES> =
+  TType extends REALTIME_LISTEN_TYPES.PRESENCE
+    ? { event: `${REALTIME_PRESENCE_LISTEN_EVENTS}` }
+    : TType extends REALTIME_LISTEN_TYPES.POSTGRES_CHANGES
+    ? RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT}`>
+    : TType extends REALTIME_LISTEN_TYPES.BROADCAST
+    ? { event: string }
+    : TType extends REALTIME_LISTEN_TYPES.SYSTEM
+    ? {}
+    : { event: string; [key: string]: string }
+
 export enum REALTIME_SUBSCRIBE_STATES {
   SUBSCRIBED = 'SUBSCRIBED',
   TIMED_OUT = 'TIMED_OUT',
@@ -151,14 +207,7 @@ export default class RealtimeChannel {
     public socket: RealtimeClient
   ) {
     this.subTopic = topic.replace(/^realtime:/i, '')
-    this.params.config = {
-      ...{
-        broadcast: { ack: false, self: false },
-        presence: { key: '', enabled: false },
-        private: false,
-      },
-      ...params.config,
-    }
+    this.params.config = mergeChannelConfig(params.config)
     this.timeout = this.socket.timeout
     this.joinPush = new Push(
       this,
@@ -166,55 +215,45 @@ export default class RealtimeChannel {
       this.params,
       this.timeout
     )
+
     this.rejoinTimer = new Timer(
       () => this._rejoinUntilConnected(),
       this.socket.reconnectAfterMs
     )
+
     this.joinPush.receive('ok', () => {
       this.state = CHANNEL_STATES.joined
       this.rejoinTimer.reset()
       this.pushBuffer.forEach((pushEvent: Push) => pushEvent.send())
       this.pushBuffer = []
     })
+
     this._onClose(() => {
       this.rejoinTimer.reset()
       this.socket.log('channel', `close ${this.topic} ${this._joinRef()}`)
       this.state = CHANNEL_STATES.closed
       this.socket._remove(this)
     })
-    this._onError((reason: string) => {
-      if (this._isLeaving() || this._isClosed()) {
-        return
-      }
-      this.socket.log('channel', `error ${this.topic}`, reason)
-      this.state = CHANNEL_STATES.errored
-      this.rejoinTimer.scheduleTimeout()
-    })
+
+    this._onError((reason: string) => this._handleChannelError('error', reason))
     this.joinPush.receive('timeout', () => {
       if (!this._isJoining()) {
         return
       }
-      this.socket.log('channel', `timeout ${this.topic}`, this.joinPush.timeout)
-      this.state = CHANNEL_STATES.errored
-      this.rejoinTimer.scheduleTimeout()
+      this._handleChannelError('timeout', this.joinPush.timeout)
     })
 
-    this.joinPush.receive('error', (reason: any) => {
-      if (this._isLeaving() || this._isClosed()) {
-        return
-      }
-      this.socket.log('channel', `error ${this.topic}`, reason)
-      this.state = CHANNEL_STATES.errored
-      this.rejoinTimer.scheduleTimeout()
-    })
-    this._on(CHANNEL_EVENTS.reply, {}, (payload: any, ref: string) => {
+    this.joinPush.receive('error', (reason: any) =>
+      this._handleChannelError('error', reason)
+    )
+
+    this._on(CHANNEL_EVENTS.reply, {}, (payload: any, ref: string) =>
       this._trigger(this._replyEventName(ref), payload)
-    })
+    )
 
     this.presence = new RealtimePresence(this)
 
-    this.broadcastEndpointURL =
-      httpEndpointURL(this.socket.endPoint) + '/api/broadcast'
+    this.broadcastEndpointURL = httpEndpointURL(this.socket.endPoint)
     this.private = this.params.config.private || false
   }
 
@@ -234,9 +273,7 @@ export default class RealtimeChannel {
       const postgres_changes =
         this.bindings.postgres_changes?.map((r) => r.filter) ?? []
 
-      const presence_enabled =
-        !!this.bindings[REALTIME_LISTEN_TYPES.PRESENCE] &&
-        this.bindings[REALTIME_LISTEN_TYPES.PRESENCE].length > 0
+      const presence_enabled = shouldEnablePresence(this.bindings)
       const accessTokenPayload: { access_token?: string } = {}
       const config = {
         broadcast,
@@ -263,51 +300,19 @@ export default class RealtimeChannel {
       this.joinPush
         .receive('ok', async ({ postgres_changes }: PostgresChangesFilters) => {
           this.socket.setAuth()
+
           if (postgres_changes === undefined) {
             callback?.(REALTIME_SUBSCRIBE_STATES.SUBSCRIBED)
             return
-          } else {
-            const clientPostgresBindings = this.bindings.postgres_changes
-            const bindingsLen = clientPostgresBindings?.length ?? 0
-            const newPostgresBindings = []
+          }
 
-            for (let i = 0; i < bindingsLen; i++) {
-              const clientPostgresBinding = clientPostgresBindings[i]
-              const {
-                filter: { event, schema, table, filter },
-              } = clientPostgresBinding
-              const serverPostgresFilter =
-                postgres_changes && postgres_changes[i]
-
-              if (
-                serverPostgresFilter &&
-                serverPostgresFilter.event === event &&
-                serverPostgresFilter.schema === schema &&
-                serverPostgresFilter.table === table &&
-                serverPostgresFilter.filter === filter
-              ) {
-                newPostgresBindings.push({
-                  ...clientPostgresBinding,
-                  id: serverPostgresFilter.id,
-                })
-              } else {
-                this.unsubscribe()
-                this.state = CHANNEL_STATES.errored
-
-                callback?.(
-                  REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR,
-                  new Error(
-                    'mismatch between server and client bindings for postgres changes'
-                  )
-                )
-                return
-              }
-            }
-
-            this.bindings.postgres_changes = newPostgresBindings
-
-            callback && callback(REALTIME_SUBSCRIBE_STATES.SUBSCRIBED)
-            return
+          try {
+            const validatedBindings =
+              this._validatePostgresChanges(postgres_changes)
+            this.bindings.postgres_changes = validatedBindings
+            callback?.(REALTIME_SUBSCRIBE_STATES.SUBSCRIBED)
+          } catch (error) {
+            this._handleSubscriptionError(callback, error as Error)
           }
         })
         .receive('error', (error: { [key: string]: any }) => {
@@ -362,75 +367,19 @@ export default class RealtimeChannel {
 
   /**
    * Creates an event handler that listens to changes.
-   */
-  on(
-    type: `${REALTIME_LISTEN_TYPES.PRESENCE}`,
-    filter: { event: `${REALTIME_PRESENCE_LISTEN_EVENTS.SYNC}` },
-    callback: () => void
-  ): RealtimeChannel
-  on<T extends { [key: string]: any }>(
-    type: `${REALTIME_LISTEN_TYPES.PRESENCE}`,
-    filter: { event: `${REALTIME_PRESENCE_LISTEN_EVENTS.JOIN}` },
-    callback: (payload: RealtimePresenceJoinPayload<T>) => void
-  ): RealtimeChannel
-  on<T extends { [key: string]: any }>(
-    type: `${REALTIME_LISTEN_TYPES.PRESENCE}`,
-    filter: { event: `${REALTIME_PRESENCE_LISTEN_EVENTS.LEAVE}` },
-    callback: (payload: RealtimePresenceLeavePayload<T>) => void
-  ): RealtimeChannel
-  on<T extends { [key: string]: any }>(
-    type: `${REALTIME_LISTEN_TYPES.POSTGRES_CHANGES}`,
-    filter: RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.ALL}`>,
-    callback: (payload: RealtimePostgresChangesPayload<T>) => void
-  ): RealtimeChannel
-  on<T extends { [key: string]: any }>(
-    type: `${REALTIME_LISTEN_TYPES.POSTGRES_CHANGES}`,
-    filter: RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.INSERT}`>,
-    callback: (payload: RealtimePostgresInsertPayload<T>) => void
-  ): RealtimeChannel
-  on<T extends { [key: string]: any }>(
-    type: `${REALTIME_LISTEN_TYPES.POSTGRES_CHANGES}`,
-    filter: RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.UPDATE}`>,
-    callback: (payload: RealtimePostgresUpdatePayload<T>) => void
-  ): RealtimeChannel
-  on<T extends { [key: string]: any }>(
-    type: `${REALTIME_LISTEN_TYPES.POSTGRES_CHANGES}`,
-    filter: RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.DELETE}`>,
-    callback: (payload: RealtimePostgresDeletePayload<T>) => void
-  ): RealtimeChannel
-  /**
-   * The following is placed here to display on supabase.com/docs/reference/javascript/subscribe.
-   * @param type One of "broadcast", "presence", or "postgres_changes".
+   *
+   * @param type One of "broadcast", "presence", "postgres_changes", or "system".
    * @param filter Custom object specific to the Realtime feature detailing which payloads to receive.
    * @param callback Function to be invoked when event handler is triggered.
    */
-  on(
-    type: `${REALTIME_LISTEN_TYPES.BROADCAST}`,
-    filter: { event: string },
-    callback: (payload: {
-      type: `${REALTIME_LISTEN_TYPES.BROADCAST}`
-      event: string
-      [key: string]: any
-    }) => void
-  ): RealtimeChannel
-  on<T extends { [key: string]: any }>(
-    type: `${REALTIME_LISTEN_TYPES.BROADCAST}`,
-    filter: { event: string },
-    callback: (payload: {
-      type: `${REALTIME_LISTEN_TYPES.BROADCAST}`
-      event: string
-      payload: T
-    }) => void
-  ): RealtimeChannel
-  on<T extends { [key: string]: any }>(
-    type: `${REALTIME_LISTEN_TYPES.SYSTEM}`,
-    filter: {},
-    callback: (payload: any) => void
-  ): RealtimeChannel
-  on(
-    type: `${REALTIME_LISTEN_TYPES}`,
-    filter: { event: string; [key: string]: string },
-    callback: (payload: any) => void
+  on<
+    TType extends REALTIME_LISTEN_TYPES,
+    TFilter extends RealtimeListenerFilter<TType>,
+    T = any
+  >(
+    type: TType,
+    filter: TFilter,
+    callback: (payload: RealtimeListenerPayload<TType, TFilter, T>) => void
   ): RealtimeChannel {
     if (
       this.state === CHANNEL_STATES.joined &&
@@ -553,6 +502,7 @@ export default class RealtimeChannel {
           resolve('timed out')
         })
         .receive('error', () => {
+          onClose()
           resolve('error')
         })
 
@@ -562,17 +512,22 @@ export default class RealtimeChannel {
       }
     }).finally(() => {
       leavePush?.destroy()
+      this.state = CHANNEL_STATES.closed
     })
   }
   /**
    * Teardown the channel.
    *
-   * Destroys and stops related timers.
+   * Destroys and stops related timers, cleans up bindings and pushes.
+   * Safe to call multiple times.
    */
   teardown() {
     this.pushBuffer.forEach((push: Push) => push.destroy())
-    this.rejoinTimer && clearTimeout(this.rejoinTimer.timer)
+    this.pushBuffer = []
     this.joinPush.destroy()
+    this.rejoinTimer.reset()
+    this.bindings = {}
+    this.state = CHANNEL_STATES.closed
   }
 
   /** @internal */
@@ -609,7 +564,7 @@ export default class RealtimeChannel {
       pushEvent.send()
     } else {
       pushEvent.startTimeout()
-      this.pushBuffer.push(pushEvent)
+      this._addToPushBuffer(pushEvent)
     }
 
     return pushEvent
@@ -640,74 +595,164 @@ export default class RealtimeChannel {
   /** @internal */
   _trigger(type: string, payload?: any, ref?: string) {
     const typeLower = type.toLocaleLowerCase()
-    const { close, error, leave, join } = CHANNEL_EVENTS
-    const events: string[] = [close, error, leave, join]
-    if (ref && events.indexOf(typeLower) >= 0 && ref !== this._joinRef()) {
+
+    const channelEvents = ['phx_close', 'phx_error', 'phx_leave', 'phx_join']
+    if (ref && channelEvents.includes(typeLower) && ref !== this._joinRef()) {
       return
     }
-    let handledPayload = this._onMessage(typeLower, payload, ref)
-    if (payload && !handledPayload) {
-      throw 'channel onMessage callbacks must return the payload, modified or unmodified'
-    }
+    const handledPayload = this._processPayload(typeLower, payload, ref)
 
     if (['insert', 'update', 'delete'].includes(typeLower)) {
-      this.bindings.postgres_changes
-        ?.filter((bind) => {
-          return (
-            bind.filter?.event === '*' ||
-            bind.filter?.event?.toLocaleLowerCase() === typeLower
-          )
-        })
-        .map((bind) => bind.callback(handledPayload, ref))
+      this._triggerPostgresChanges(typeLower, handledPayload, ref)
     } else {
-      this.bindings[typeLower]
-        ?.filter((bind) => {
-          if (
-            ['broadcast', 'presence', 'postgres_changes'].includes(typeLower)
-          ) {
-            if ('id' in bind) {
-              const bindId = bind.id
-              const bindEvent = bind.filter?.event
-              return (
-                bindId &&
-                payload.ids?.includes(bindId) &&
-                (bindEvent === '*' ||
-                  bindEvent?.toLocaleLowerCase() ===
-                    payload.data?.type.toLocaleLowerCase())
-              )
-            } else {
-              const bindEvent = bind?.filter?.event?.toLocaleLowerCase()
-              return (
-                bindEvent === '*' ||
-                bindEvent === payload?.event?.toLocaleLowerCase()
-              )
-            }
-          } else {
-            return bind.type.toLocaleLowerCase() === typeLower
-          }
-        })
-        .map((bind) => {
-          if (typeof handledPayload === 'object' && 'ids' in handledPayload) {
-            const postgresChanges = handledPayload.data
-            const { schema, table, commit_timestamp, type, errors } =
-              postgresChanges
-            const enrichedPayload = {
-              schema: schema,
-              table: table,
-              commit_timestamp: commit_timestamp,
-              eventType: type,
-              new: {},
-              old: {},
-              errors: errors,
-            }
-            handledPayload = {
-              ...enrichedPayload,
-              ...this._getPayloadRecords(postgresChanges),
-            }
-          }
-          bind.callback(handledPayload, ref)
-        })
+      this._triggerRegularBindings(typeLower, handledPayload, ref, payload)
     }
+  }
+
+  /** @internal */
+  private _processPayload(typeLower: string, payload: any, ref?: string): any {
+    const handledPayload = this._onMessage(typeLower, payload, ref)
+    if (payload && !handledPayload) {
+      throw new Error(
+        'channel onMessage callbacks must return the payload, modified or unmodified'
+      )
+    }
+    return handledPayload
+  }
+
+  /** @internal */
+  private _triggerPostgresChanges(
+    typeLower: string,
+    handledPayload: any,
+    ref?: string
+  ): void {
+    this.bindings.postgres_changes
+      ?.filter((bind) => {
+        const bindEvent = bind.filter?.event?.toLocaleLowerCase()
+        return bindEvent === '*' || bindEvent === typeLower
+      })
+      .forEach((bind) => bind.callback(handledPayload, ref))
+  }
+
+  /** @internal */
+  private _triggerRegularBindings(
+    typeLower: string,
+    handledPayload: any,
+    ref?: string,
+    originalPayload?: any
+  ): void {
+    const bindings = this.bindings[typeLower]
+    if (!bindings) return
+
+    bindings
+      .filter((bind) =>
+        this._shouldTriggerBinding(bind, typeLower, originalPayload)
+      )
+      .forEach((bind) => {
+        const finalPayload = this._prepareFinalPayload(bind, handledPayload)
+        bind.callback(finalPayload, ref)
+      })
+  }
+
+  /** @internal */
+  private _shouldTriggerBinding(
+    bind: any,
+    typeLower: string,
+    payload?: any
+  ): boolean {
+    // For non-realtime events, just match the type
+    if (!['broadcast', 'presence', 'postgres_changes'].includes(typeLower)) {
+      return bind.type.toLocaleLowerCase() === typeLower
+    }
+
+    // For postgres_changes with ID (server-assigned bindings)
+    if ('id' in bind) {
+      const bindId = bind.id
+      const bindEvent = bind.filter?.event?.toLocaleLowerCase()
+      return !!(
+        bindId &&
+        payload?.ids?.includes(bindId) &&
+        (bindEvent === '*' ||
+          bindEvent === payload.data?.type?.toLocaleLowerCase())
+      )
+    }
+
+    // For regular event-based bindings
+    const bindEvent = bind.filter?.event?.toLocaleLowerCase()
+    return (
+      bindEvent === '*' || bindEvent === payload?.event?.toLocaleLowerCase()
+    )
+  }
+
+  /** @internal */
+  private _prepareFinalPayload(_bind: any, handledPayload: any): any {
+    // Transform postgres_changes payload if needed
+    if (typeof handledPayload === 'object' && 'ids' in handledPayload) {
+      const postgresChanges = handledPayload.data
+      const { schema, table, commit_timestamp, type, errors } = postgresChanges
+      const enrichedPayload = {
+        schema,
+        table,
+        commit_timestamp,
+        eventType: type,
+        errors,
+      }
+      return {
+        ...enrichedPayload,
+        ...this._getPayloadRecords(postgresChanges),
+      }
+    }
+    return handledPayload
+  }
+
+  /** @internal */
+  private _validatePostgresChanges(serverChanges: any[]): any[] {
+    const clientBindings = this.bindings.postgres_changes
+    if (!clientBindings || clientBindings.length === 0) {
+      return []
+    }
+
+    return clientBindings.map((clientBinding, index) => {
+      const serverChange = serverChanges[index]
+      if (!this._isMatchingPostgresBinding(clientBinding, serverChange)) {
+        throw new Error(
+          'mismatch between server and client bindings for postgres changes'
+        )
+      }
+
+      return {
+        ...clientBinding,
+        id: serverChange.id,
+      }
+    })
+  }
+
+  /** @internal */
+  private _isMatchingPostgresBinding(
+    clientBinding: any,
+    serverChange: any
+  ): boolean {
+    if (!serverChange) return false
+
+    const {
+      filter: { event, schema, table, filter },
+    } = clientBinding
+    return (
+      serverChange.event === event &&
+      serverChange.schema === schema &&
+      serverChange.table === table &&
+      serverChange.filter === filter
+    )
+  }
+
+  /** @internal */
+  private _handleSubscriptionError(
+    callback: Function | undefined,
+    error: Error
+  ): void {
+    this.unsubscribe()
+    this.state = CHANNEL_STATES.errored
+    callback?.(REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR, error)
   }
 
   /** @internal */
@@ -757,12 +802,14 @@ export default class RealtimeChannel {
   _off(type: string, filter: { [key: string]: any }) {
     const typeLower = type.toLocaleLowerCase()
 
-    this.bindings[typeLower] = this.bindings[typeLower].filter((bind) => {
-      return !(
-        bind.type?.toLocaleLowerCase() === typeLower &&
-        RealtimeChannel.isEqual(bind.filter, filter)
-      )
-    })
+    if (this.bindings[typeLower]) {
+      this.bindings[typeLower] = this.bindings[typeLower].filter((bind) => {
+        return !(
+          bind.type?.toLocaleLowerCase() === typeLower &&
+          RealtimeChannel.isEqual(bind.filter, filter)
+        )
+      })
+    }
     return this
   }
 
@@ -808,6 +855,40 @@ export default class RealtimeChannel {
    */
   private _onError(callback: Function) {
     this._on(CHANNEL_EVENTS.error, {}, (reason: string) => callback(reason))
+  }
+
+  /**
+   * Handles channel errors with consistent state checks and error handling logic
+   *
+   * @internal
+   */
+  private _handleChannelError(eventType: string, reason?: any): void {
+    if (this._isLeaving() || this._isClosed()) {
+      return
+    }
+    this.socket.log('channel', `${eventType} ${this.topic}`, reason)
+    this.state = CHANNEL_STATES.errored
+    this.rejoinTimer.scheduleTimeout()
+  }
+
+  /**
+   * Adds a push event to the buffer with size limits to prevent memory leaks
+   *
+   * @internal
+   */
+  private _addToPushBuffer(pushEvent: Push): void {
+    // If buffer is at capacity, remove and destroy oldest push
+    if (this.pushBuffer.length >= MAX_PUSH_BUFFER_SIZE) {
+      const oldestPush = this.pushBuffer.shift()
+      oldestPush?.destroy()
+
+      this.socket.log(
+        'channel',
+        `push buffer full, discarding oldest push for ${this.topic}`
+      )
+    }
+
+    this.pushBuffer.push(pushEvent)
   }
 
   /**
