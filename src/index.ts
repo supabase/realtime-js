@@ -22,9 +22,7 @@ import RealtimePresence, {
   RealtimePresenceLeavePayload,
   REALTIME_PRESENCE_LISTEN_EVENTS,
 } from './RealtimePresence'
-import WebSocketFactory, {
-  WebSocketLike,
-} from './lib/websocket-factory'
+import WebSocketFactory, { WebSocketLike } from './lib/websocket-factory'
 
 export {
   RealtimePresence,

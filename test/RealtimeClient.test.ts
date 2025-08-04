@@ -10,7 +10,6 @@ import {
   vi,
 } from 'vitest'
 import { Server, WebSocket as MockWebSocket } from 'mock-socket'
-import { WebSocket } from 'isows'
 import sinon from 'sinon'
 import crypto from 'crypto'
 import RealtimeClient, { HeartbeatStatus } from '../src/RealtimeClient'
