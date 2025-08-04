@@ -46,12 +46,17 @@ export type HeartbeatStatus =
 
 const noop = () => {}
 
+type RealtimeClientState =
+  | 'connecting'
+  | 'connected'
+  | 'disconnecting'
+  | 'disconnected'
+
 // Connection-related constants
 const CONNECTION_TIMEOUTS = {
   HEARTBEAT_INTERVAL: 25000,
   RECONNECT_DELAY: 10,
   HEARTBEAT_TIMEOUT_FALLBACK: 100,
-  AUTH_DELAY: 0,
 } as const
 
 const RECONNECT_INTERVALS = [1000, 2000, 5000, 10000] as const
@@ -114,7 +119,7 @@ export default class RealtimeClient {
   pendingHeartbeatRef: string | null = null
   heartbeatCallback: (status: HeartbeatStatus) => void = noop
   ref: number = 0
-  reconnectTimer!: Timer
+  reconnectTimer: Timer | null = null
   logger: Function = noop
   logLevel?: LogLevel
   encode!: Function
@@ -139,9 +144,9 @@ export default class RealtimeClient {
   worker?: boolean
   workerUrl?: string
   workerRef?: Worker
-  private _isConnecting: boolean = false
-  private _isDisconnecting: boolean = false
+  private _connectionState: RealtimeClientState = 'disconnected'
   private _wasManualDisconnect: boolean = false
+  private _authPromise: Promise<void> | null = null
 
   /**
    * Initializes the Socket.
@@ -162,28 +167,18 @@ export default class RealtimeClient {
    * @param options.workerUrl The URL of the worker script. Defaults to https://realtime.supabase.com/worker.js that includes a heartbeat event call to keep the connection alive.
    */
   constructor(endPoint: string, options?: RealtimeClientOptions) {
-    this.endPoint = `${endPoint}/${TRANSPORTS.websocket}`
-    this.httpEndpoint = httpEndpointURL(endPoint)
-    
-    // Validate required options
+    // Validate required parameters
     if (!options?.params?.apikey) {
       throw new Error('API key is required to connect to Realtime')
     }
     this.apiKey = options.params.apikey
-    
-    // Initialize all options with defaults
+
+    // Initialize endpoint URLs
+    this.endPoint = `${endPoint}/${TRANSPORTS.websocket}`
+    this.httpEndpoint = httpEndpointURL(endPoint)
+
     this._initializeOptions(options)
-    
-    // Set up reconnection timer
-    this.reconnectTimer = new Timer(() => {
-      setTimeout(() => {
-        if (!this.isConnected()) {
-          this.connect()
-        }
-      }, CONNECTION_TIMEOUTS.RECONNECT_DELAY)
-    }, this.reconnectAfterMs)
-    
-    // Set up fetch function
+    this._setupReconnectionTimer()
     this.fetch = this._resolveFetch(options?.fetch)
   }
 
@@ -191,17 +186,19 @@ export default class RealtimeClient {
    * Connects the socket, unless already connected.
    */
   connect(): void {
-    // Set the token on connect
-    setTimeout(() => {
-      this._setAuthSafely('connect')
-    }, CONNECTION_TIMEOUTS.AUTH_DELAY)
-
-    if (this._isConnecting || this._isDisconnecting || (this.conn && this.isConnected())) {
+    // Skip if already connecting, disconnecting, or connected
+    if (
+      this.isConnecting() ||
+      this.isDisconnecting() ||
+      (this.conn !== null && this.isConnected())
+    ) {
       return
     }
 
     this._setConnectionState('connecting')
-
+    this._setAuthSafely('connect')
+    
+    // Establish WebSocket connection
     if (!this.transport) {
       this.transport = WebSocket
     }
@@ -209,7 +206,8 @@ export default class RealtimeClient {
       this._setConnectionState('disconnected')
       throw new Error('No transport provided')
     }
-    this.conn = new this.transport(this.endpointURL()) as WebSocketLike
+
+    this.conn = new this.transport!(this.endpointURL()) as WebSocketLike
     this._setupConnectionHandlers()
   }
 
@@ -231,23 +229,30 @@ export default class RealtimeClient {
    * @param reason A custom reason for the disconnect.
    */
   disconnect(code?: number, reason?: string): void {
-    if (this._isDisconnecting) {
+    if (this.isDisconnecting()) {
       return
     }
 
     this._setConnectionState('disconnecting', true)
-
+    
     if (this.conn) {
+      // Setup fallback timer to prevent hanging in disconnecting state
+      const fallbackTimer = setTimeout(() => {
+        this._setConnectionState('disconnected')
+      }, 100)
+
       this.conn.onclose = () => {
+        clearTimeout(fallbackTimer)
         this._setConnectionState('disconnected')
       }
 
+      // Close the WebSocket connection
       if (code) {
         this.conn.close(code, reason ?? '')
       } else {
         this.conn.close()
       }
-      
+
       this._teardownConnection()
     } else {
       this._setConnectionState('disconnected')
@@ -321,6 +326,20 @@ export default class RealtimeClient {
     return this.connectionState() === CONNECTION_STATE.Open
   }
 
+  /**
+   * Returns `true` if the connection is currently connecting.
+   */
+  isConnecting(): boolean {
+    return this._connectionState === 'connecting'
+  }
+
+  /**
+   * Returns `true` if the connection is currently disconnecting.
+   */
+  isDisconnecting(): boolean {
+    return this._connectionState === 'disconnecting'
+  }
+
   channel(
     topic: string,
     params: RealtimeChannelOptions = { config: {} }
@@ -370,27 +389,11 @@ export default class RealtimeClient {
    * @param token A JWT string to override the token set on the client.
    */
   async setAuth(token: string | null = null): Promise<void> {
-    let tokenToSend =
-      token ||
-      (this.accessToken && (await this.accessToken())) ||
-      this.accessTokenValue
-
-    if (this.accessTokenValue != tokenToSend) {
-      this.accessTokenValue = tokenToSend
-      this.channels.forEach((channel) => {
-        const payload = {
-          access_token: tokenToSend,
-          version: DEFAULT_VERSION,
-        }
-
-        tokenToSend && channel.updateJoinPayload(payload)
-
-        if (channel.joinedOnce && channel._isJoined()) {
-          channel._push(CHANNEL_EVENTS.access_token, {
-            access_token: tokenToSend,
-          })
-        }
-      })
+    this._authPromise = this._performAuth(token)
+    try {
+      await this._authPromise
+    } finally {
+      this._authPromise = null
     }
   }
   /**
@@ -401,6 +404,8 @@ export default class RealtimeClient {
       this.heartbeatCallback('disconnected')
       return
     }
+
+    // Handle heartbeat timeout and force reconnection if needed
     if (this.pendingHeartbeatRef) {
       this.pendingHeartbeatRef = null
       this.log(
@@ -408,20 +413,20 @@ export default class RealtimeClient {
         'heartbeat timeout. Attempting to re-establish connection'
       )
       this.heartbeatCallback('timeout')
-
-      // Force reconnection by closing and scheduling reconnect
+      
+      // Force reconnection after heartbeat timeout
       this._wasManualDisconnect = false
       this.conn?.close(WS_CLOSE_NORMAL, 'heartbeat timeout')
-
-      // Ensure reconnection happens even if onclose doesn't fire
+      
       setTimeout(() => {
         if (!this.isConnected()) {
-          this.reconnectTimer.scheduleTimeout()
+          this.reconnectTimer?.scheduleTimeout()
         }
       }, CONNECTION_TIMEOUTS.HEARTBEAT_TIMEOUT_FALLBACK)
-
       return
     }
+
+    // Send heartbeat message to server
     this.pendingHeartbeatRef = this._makeRef()
     this.push({
       topic: 'phoenix',
@@ -430,8 +435,7 @@ export default class RealtimeClient {
       ref: this.pendingHeartbeatRef,
     })
     this.heartbeatCallback('sent')
-
-    // Keep existing setAuth call for backward compatibility
+    
     this._setAuthSafely('heartbeat')
   }
 
@@ -510,61 +514,41 @@ export default class RealtimeClient {
     this.channels = this.channels.filter((c) => c.topic !== channel.topic)
   }
 
-
   /** @internal */
   private _onConnMessage(rawMessage: { data: any }) {
     this.decode(rawMessage.data, (msg: RealtimeMessage) => {
-      this._handleHeartbeatResponse(msg)
-      this._handlePendingHeartbeat(msg)
-      this._logIncomingMessage(msg)
-      this._routeMessageToChannels(msg)
+      // Handle heartbeat responses
+      if (msg.topic === 'phoenix' && msg.event === 'phx_reply') {
+        this.heartbeatCallback(msg.payload.status === 'ok' ? 'ok' : 'error')
+      }
+
+      // Handle pending heartbeat reference cleanup
+      if (msg.ref && msg.ref === this.pendingHeartbeatRef) {
+        this.pendingHeartbeatRef = null
+      }
+
+      // Log incoming message
+      const { topic, event, payload, ref } = msg
+      const refString = ref ? `(${ref})` : ''
+      const status = payload.status || ''
+      this.log(
+        'receive',
+        `${status} ${topic} ${event} ${refString}`.trim(),
+        payload
+      )
+
+      // Route message to appropriate channels
+      this.channels
+        .filter((channel: RealtimeChannel) => channel._isMember(topic))
+        .forEach((channel: RealtimeChannel) =>
+          channel._trigger(event, payload, ref)
+        )
+
       this._triggerStateCallbacks('message', msg)
     })
   }
 
-  /**
-   * Handle heartbeat responses from the server
-   * @internal
-   */
-  private _handleHeartbeatResponse(msg: RealtimeMessage): void {
-    if (msg.topic === 'phoenix' && msg.event === 'phx_reply') {
-      this.heartbeatCallback(msg.payload.status === 'ok' ? 'ok' : 'error')
-    }
-  }
 
-  /**
-   * Handle pending heartbeat reference cleanup
-   * @internal
-   */
-  private _handlePendingHeartbeat(msg: RealtimeMessage): void {
-    if (msg.ref && msg.ref === this.pendingHeartbeatRef) {
-      this.pendingHeartbeatRef = null
-    }
-  }
-
-  /**
-   * Log incoming message with formatted string
-   * @internal
-   */
-  private _logIncomingMessage(msg: RealtimeMessage): void {
-    const { topic, event, payload, ref } = msg
-    const refString = ref ? `(${ref})` : ''
-    const status = payload.status || ''
-    
-    this.log('receive', `${status} ${topic} ${event} ${refString}`.trim(), payload)
-  }
-
-  /**
-   * Route message to appropriate channels
-   * @internal
-   */
-  private _routeMessageToChannels(msg: RealtimeMessage): void {
-    const { topic, event, payload, ref } = msg
-    
-    this.channels
-      .filter((channel: RealtimeChannel) => channel._isMember(topic))
-      .forEach((channel: RealtimeChannel) => channel._trigger(event, payload, ref))
-  }
 
   /**
    * Clear specific timer
@@ -575,7 +559,7 @@ export default class RealtimeClient {
       clearInterval(this.heartbeatTimer)
       this.heartbeatTimer = undefined
     } else if (timer === 'reconnect') {
-      this.reconnectTimer.reset()
+      this.reconnectTimer?.reset()
     }
   }
 
@@ -594,7 +578,7 @@ export default class RealtimeClient {
    */
   private _setupConnectionHandlers(): void {
     if (!this.conn) return
-    
+
     this.conn.binaryType = 'arraybuffer'
     this.conn.onopen = () => this._onConnOpen()
     this.conn.onerror = (error: Event) => this._onConnError(error)
@@ -624,7 +608,7 @@ export default class RealtimeClient {
     this.log('transport', `connected to ${this.endpointURL()}`)
     this.flushSendBuffer()
     this._clearTimer('reconnect')
-    
+
     if (!this.worker) {
       this._startHeartbeat()
     } else {
@@ -676,7 +660,7 @@ export default class RealtimeClient {
 
     // Only schedule reconnection if it wasn't a manual disconnect
     if (!this._wasManualDisconnect) {
-      this.reconnectTimer.scheduleTimeout()
+      this.reconnectTimer?.scheduleTimeout()
     }
 
     this._triggerStateCallbacks('close', event)
@@ -725,26 +709,61 @@ export default class RealtimeClient {
    * Set connection state with proper state management
    * @internal
    */
-  private _setConnectionState(state: 'connecting' | 'connected' | 'disconnecting' | 'disconnected', manual = false): void {
-    switch (state) {
-      case 'connecting':
-        this._isConnecting = true
-        this._isDisconnecting = false
-        this._wasManualDisconnect = false
-        break
-      case 'connected':
-        this._isConnecting = false
-        this._isDisconnecting = false
-        break
-      case 'disconnecting':
-        this._isConnecting = false
-        this._isDisconnecting = true
-        this._wasManualDisconnect = manual
-        break
-      case 'disconnected':
-        this._isConnecting = false
-        this._isDisconnecting = false
-        break
+  private _setConnectionState(
+    state: RealtimeClientState,
+    manual = false
+  ): void {
+    this._connectionState = state
+
+    if (state === 'connecting') {
+      this._wasManualDisconnect = false
+    } else if (state === 'disconnecting') {
+      this._wasManualDisconnect = manual
+    }
+  }
+
+  /**
+   * Perform the actual auth operation
+   * @internal
+   */
+  private async _performAuth(token: string | null = null): Promise<void> {
+    let tokenToSend: string | null
+
+    if (token) {
+      tokenToSend = token
+    } else if (this.accessToken) {
+      // Always call the accessToken callback to get fresh token
+      tokenToSend = await this.accessToken()
+    } else {
+      tokenToSend = this.accessTokenValue
+    }
+
+    if (this.accessTokenValue != tokenToSend) {
+      this.accessTokenValue = tokenToSend
+      this.channels.forEach((channel) => {
+        const payload = {
+          access_token: tokenToSend,
+          version: DEFAULT_VERSION,
+        }
+
+        tokenToSend && channel.updateJoinPayload(payload)
+
+        if (channel.joinedOnce && channel._isJoined()) {
+          channel._push(CHANNEL_EVENTS.access_token, {
+            access_token: tokenToSend,
+          })
+        }
+      })
+    }
+  }
+
+  /**
+   * Wait for any in-flight auth operations to complete
+   * @internal
+   */
+  private async _waitForAuthIfNeeded(): Promise<void> {
+    if (this._authPromise) {
+      await this._authPromise
     }
   }
 
@@ -779,6 +798,24 @@ export default class RealtimeClient {
     }
   }
 
+
+  /**
+   * Setup reconnection timer with proper configuration
+   * @internal
+   */
+  private _setupReconnectionTimer(): void {
+    this.reconnectTimer = new Timer(async () => {
+      setTimeout(async () => {
+        await this._waitForAuthIfNeeded()
+        if (!this.isConnected()) {
+          this.connect()
+        }
+      }, CONNECTION_TIMEOUTS.RECONNECT_DELAY)
+    }, this.reconnectAfterMs)
+  }
+
+
+
   /**
    * Initialize client options with defaults
    * @internal
@@ -787,10 +824,11 @@ export default class RealtimeClient {
     // Set defaults
     this.transport = options?.transport ?? null
     this.timeout = options?.timeout ?? DEFAULT_TIMEOUT
-    this.heartbeatIntervalMs = options?.heartbeatIntervalMs ?? CONNECTION_TIMEOUTS.HEARTBEAT_INTERVAL
+    this.heartbeatIntervalMs =
+      options?.heartbeatIntervalMs ?? CONNECTION_TIMEOUTS.HEARTBEAT_INTERVAL
     this.worker = options?.worker ?? false
     this.accessToken = options?.accessToken ?? null
-    
+
     // Handle special cases
     if (options?.params) this.params = options.params
     if (options?.logger) this.logger = options.logger
@@ -798,18 +836,23 @@ export default class RealtimeClient {
       this.logLevel = options.logLevel || options.log_level
       this.params = { ...this.params, log_level: this.logLevel as string }
     }
-    
+
     // Set up functions with defaults
-    this.reconnectAfterMs = options?.reconnectAfterMs ?? ((tries: number) => {
-      return RECONNECT_INTERVALS[tries - 1] || DEFAULT_RECONNECT_FALLBACK
-    })
-    
-    this.encode = options?.encode ?? ((payload: JSON, callback: Function) => {
-      return callback(JSON.stringify(payload))
-    })
-    
-    this.decode = options?.decode ?? this.serializer.decode.bind(this.serializer)
-    
+    this.reconnectAfterMs =
+      options?.reconnectAfterMs ??
+      ((tries: number) => {
+        return RECONNECT_INTERVALS[tries - 1] || DEFAULT_RECONNECT_FALLBACK
+      })
+
+    this.encode =
+      options?.encode ??
+      ((payload: JSON, callback: Function) => {
+        return callback(JSON.stringify(payload))
+      })
+
+    this.decode =
+      options?.decode ?? this.serializer.decode.bind(this.serializer)
+
     // Handle worker setup
     if (this.worker) {
       if (typeof window !== 'undefined' && !window.Worker) {

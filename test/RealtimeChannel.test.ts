@@ -244,12 +244,15 @@ describe('subscribe', () => {
     const channel = testSocket.channel('topic')
 
     channel.subscribe()
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await new Promise((resolve) => setTimeout(resolve, 50))
     assert.equal(channel.socket.accessTokenValue, tokens[0])
 
     testSocket.disconnect()
+    // Wait for disconnect to complete (including fallback timer)
+    await new Promise((resolve) => setTimeout(resolve, 150))
+
     channel.subscribe()
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await new Promise((resolve) => setTimeout(resolve, 50))
     assert.equal(channel.socket.accessTokenValue, tokens[1])
   })
 

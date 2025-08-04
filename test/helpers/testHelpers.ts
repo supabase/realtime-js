@@ -1,5 +1,7 @@
 import { Server, WebSocket as MockWebSocket } from 'mock-socket'
 import RealtimeClient from '../../src/RealtimeClient'
+import assert from 'assert'
+import sinon from 'sinon'
 
 export const DEFAULT_URL = 'ws://localhost:4000/socket'
 export const DEFAULT_API_KEY = '123456789'
@@ -13,22 +15,24 @@ export interface TestContext {
 /**
  * Creates a test context with a RealtimeClient and mock server
  */
-export function createTestContext(options: {
-  url?: string
-  apikey?: string
-  transport?: any
-  [key: string]: any
-} = {}): TestContext {
+export function createTestContext(
+  options: {
+    url?: string
+    apikey?: string
+    transport?: any
+    [key: string]: any
+  } = {}
+): TestContext {
   const url = options.url || DEFAULT_URL
   const apikey = options.apikey || DEFAULT_API_KEY
-  
+
   const mockServer = new Server(url)
   const socket = new RealtimeClient(url, {
     transport: MockWebSocket,
     params: { apikey, ...options.params },
     ...options,
   })
-  
+
   return { socket, mockServer, url }
 }
 
@@ -44,19 +48,22 @@ export function cleanupTestContext(context: TestContext): void {
  * Wait for a specified amount of time
  */
 export function waitFor(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 /**
  * Wait for a socket to be connected
  */
-export async function waitForConnection(socket: RealtimeClient, timeout = 1000): Promise<void> {
+export async function waitForConnection(
+  socket: RealtimeClient,
+  timeout = 1000
+): Promise<void> {
   const startTime = Date.now()
-  
+
   while (!socket.isConnected() && Date.now() - startTime < timeout) {
     await waitFor(10)
   }
-  
+
   if (!socket.isConnected()) {
     throw new Error(`Socket did not connect within ${timeout}ms`)
   }
@@ -65,13 +72,16 @@ export async function waitForConnection(socket: RealtimeClient, timeout = 1000):
 /**
  * Wait for a socket to be disconnected
  */
-export async function waitForDisconnection(socket: RealtimeClient, timeout = 1000): Promise<void> {
+export async function waitForDisconnection(
+  socket: RealtimeClient,
+  timeout = 1000
+): Promise<void> {
   const startTime = Date.now()
-  
+
   while (socket.isConnected() && Date.now() - startTime < timeout) {
     await waitFor(10)
   }
-  
+
   if (socket.isConnected()) {
     throw new Error(`Socket did not disconnect within ${timeout}ms`)
   }
@@ -85,7 +95,6 @@ export const assertions = {
    * Assert that socket has expected default values
    */
   hasDefaults(socket: RealtimeClient): void {
-    const assert = require('assert')
     assert.equal(socket.getChannels().length, 0)
     assert.equal(socket.sendBuffer.length, 0)
     assert.equal(socket.ref, 0)
@@ -99,7 +108,6 @@ export const assertions = {
    * Assert that socket is in expected connection state
    */
   isConnected(socket: RealtimeClient): void {
-    const assert = require('assert')
     assert.equal(socket.isConnected(), true)
   },
 
@@ -107,7 +115,6 @@ export const assertions = {
    * Assert that socket is disconnected
    */
   isDisconnected(socket: RealtimeClient): void {
-    const assert = require('assert')
     assert.equal(socket.isConnected(), false)
   },
 }
@@ -119,8 +126,7 @@ export const spies = {
   /**
    * Create a spy for a method and return cleanup function
    */
-  method(target: any, methodName: string): { spy: any, cleanup: () => void } {
-    const sinon = require('sinon')
+  method(target: any, methodName: string): { spy: any; cleanup: () => void } {
     const spy = sinon.spy(target, methodName)
     return {
       spy,
@@ -131,8 +137,11 @@ export const spies = {
   /**
    * Create a stub for a method with return value
    */
-  stub(target: any, methodName: string, returnValue?: any): { stub: any, cleanup: () => void } {
-    const sinon = require('sinon')
+  stub(
+    target: any,
+    methodName: string,
+    returnValue?: any
+  ): { stub: any; cleanup: () => void } {
     const stub = sinon.stub(target, methodName)
     if (returnValue !== undefined) {
       stub.returns(returnValue)
