@@ -14,6 +14,12 @@ importers:
       '@types/phoenix':
         specifier: ^1.6.6
         version: 1.6.6
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
+      ws:
+        specifier: ^8.18.2
+        version: 8.18.2
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: ^0.16.4
@@ -21,9 +27,6 @@ importers:
       '@types/sinon':
         specifier: ^17.0.4
         version: 17.0.4
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
       '@vitest/coverage-v8':
         specifier: ^3.1.4
         version: 3.1.4(vitest@3.1.4(@types/node@22.15.21)(jsdom@16.7.0))
@@ -72,9 +75,6 @@ importers:
       web-worker:
         specifier: 1.2.0
         version: 1.2.0
-      ws:
-        specifier: ^8.18.2
-        version: 8.18.2
 
 packages:
 
