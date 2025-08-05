@@ -7,7 +7,20 @@
       "Bash(npm install)",
       "Bash(pnpm test:*)",
       "Bash(pnpm run:*)",
-      "Bash(npm run coverage:*)"
+      "Bash(npm run coverage:*)",
+      "Bash(find:*)",
+      "Bash(npm run test:coverage:*)",
+      "Bash(npm run test:*)",
+      "Bash(grep:*)",
+      "Bash(npx vitest run:*)",
+      "Bash(pnpm coverage:*)",
+      "Bash(npm run:*)",
+      "Bash(vitest run:*)",
+      "Bash(timeout 30 npm test:*)",
+      "Bash(awk:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npx tsc:*)",
+      "Bash(sed:*)"
     ],
     "deny": []
   }

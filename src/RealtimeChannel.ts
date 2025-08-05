@@ -107,55 +107,6 @@ export enum REALTIME_LISTEN_TYPES {
 }
 
 // Consolidated type mapping using conditional types for proper inference
-type RealtimeListenerPayload<
-  TType extends REALTIME_LISTEN_TYPES,
-  TFilter,
-  T = any
-> =
-  // Presence event payloads
-  TType extends REALTIME_LISTEN_TYPES.PRESENCE
-    ? TFilter extends { event: `${REALTIME_PRESENCE_LISTEN_EVENTS.SYNC}` }
-      ? void
-      : TFilter extends { event: `${REALTIME_PRESENCE_LISTEN_EVENTS.JOIN}` }
-      ? RealtimePresenceJoinPayload<T>
-      : TFilter extends { event: `${REALTIME_PRESENCE_LISTEN_EVENTS.LEAVE}` }
-      ? RealtimePresenceLeavePayload<T>
-      : never
-    : // Postgres changes payloads
-    TType extends REALTIME_LISTEN_TYPES.POSTGRES_CHANGES
-    ? TFilter extends RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.ALL}`>
-      ? RealtimePostgresChangesPayload<T>
-      : TFilter extends RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.INSERT}`>
-      ? RealtimePostgresInsertPayload<T>
-      : TFilter extends RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.UPDATE}`>
-      ? RealtimePostgresUpdatePayload<T>
-      : TFilter extends RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.DELETE}`>
-      ? RealtimePostgresDeletePayload<T>
-      : never
-    : // Broadcast payloads
-    TType extends REALTIME_LISTEN_TYPES.BROADCAST
-    ? {
-        type: `${REALTIME_LISTEN_TYPES.BROADCAST}`
-        event: string
-        [key: string]: any
-      }
-    : // System payloads
-    TType extends REALTIME_LISTEN_TYPES.SYSTEM
-    ? any
-    : // Fallback
-      any
-
-// Valid filter types for each listener type
-type RealtimeListenerFilter<TType extends REALTIME_LISTEN_TYPES> =
-  TType extends REALTIME_LISTEN_TYPES.PRESENCE
-    ? { event: `${REALTIME_PRESENCE_LISTEN_EVENTS}` }
-    : TType extends REALTIME_LISTEN_TYPES.POSTGRES_CHANGES
-    ? RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT}`>
-    : TType extends REALTIME_LISTEN_TYPES.BROADCAST
-    ? { event: string }
-    : TType extends REALTIME_LISTEN_TYPES.SYSTEM
-    ? {}
-    : { event: string; [key: string]: string }
 
 export enum REALTIME_SUBSCRIBE_STATES {
   SUBSCRIBED = 'SUBSCRIBED',
@@ -367,19 +318,75 @@ export default class RealtimeChannel {
 
   /**
    * Creates an event handler that listens to changes.
-   *
-   * @param type One of "broadcast", "presence", "postgres_changes", or "system".
+   */
+  on(
+    type: `${REALTIME_LISTEN_TYPES.PRESENCE}`,
+    filter: { event: `${REALTIME_PRESENCE_LISTEN_EVENTS.SYNC}` },
+    callback: () => void
+  ): RealtimeChannel
+  on<T extends { [key: string]: any }>(
+    type: `${REALTIME_LISTEN_TYPES.PRESENCE}`,
+    filter: { event: `${REALTIME_PRESENCE_LISTEN_EVENTS.JOIN}` },
+    callback: (payload: RealtimePresenceJoinPayload<T>) => void
+  ): RealtimeChannel
+  on<T extends { [key: string]: any }>(
+    type: `${REALTIME_LISTEN_TYPES.PRESENCE}`,
+    filter: { event: `${REALTIME_PRESENCE_LISTEN_EVENTS.LEAVE}` },
+    callback: (payload: RealtimePresenceLeavePayload<T>) => void
+  ): RealtimeChannel
+  on<T extends { [key: string]: any }>(
+    type: `${REALTIME_LISTEN_TYPES.POSTGRES_CHANGES}`,
+    filter: RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.ALL}`>,
+    callback: (payload: RealtimePostgresChangesPayload<T>) => void
+  ): RealtimeChannel
+  on<T extends { [key: string]: any }>(
+    type: `${REALTIME_LISTEN_TYPES.POSTGRES_CHANGES}`,
+    filter: RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.INSERT}`>,
+    callback: (payload: RealtimePostgresInsertPayload<T>) => void
+  ): RealtimeChannel
+  on<T extends { [key: string]: any }>(
+    type: `${REALTIME_LISTEN_TYPES.POSTGRES_CHANGES}`,
+    filter: RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.UPDATE}`>,
+    callback: (payload: RealtimePostgresUpdatePayload<T>) => void
+  ): RealtimeChannel
+  on<T extends { [key: string]: any }>(
+    type: `${REALTIME_LISTEN_TYPES.POSTGRES_CHANGES}`,
+    filter: RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.DELETE}`>,
+    callback: (payload: RealtimePostgresDeletePayload<T>) => void
+  ): RealtimeChannel
+  /**
+   * The following is placed here to display on supabase.com/docs/reference/javascript/subscribe.
+   * @param type One of "broadcast", "presence", or "postgres_changes".
    * @param filter Custom object specific to the Realtime feature detailing which payloads to receive.
    * @param callback Function to be invoked when event handler is triggered.
    */
-  on<
-    TType extends REALTIME_LISTEN_TYPES,
-    TFilter extends RealtimeListenerFilter<TType>,
-    T = any
-  >(
-    type: TType,
-    filter: TFilter,
-    callback: (payload: RealtimeListenerPayload<TType, TFilter, T>) => void
+  on(
+    type: `${REALTIME_LISTEN_TYPES.BROADCAST}`,
+    filter: { event: string },
+    callback: (payload: {
+      type: `${REALTIME_LISTEN_TYPES.BROADCAST}`
+      event: string
+      [key: string]: any
+    }) => void
+  ): RealtimeChannel
+  on<T extends { [key: string]: any }>(
+    type: `${REALTIME_LISTEN_TYPES.BROADCAST}`,
+    filter: { event: string },
+    callback: (payload: {
+      type: `${REALTIME_LISTEN_TYPES.BROADCAST}`
+      event: string
+      payload: T
+    }) => void
+  ): RealtimeChannel
+  on<T extends { [key: string]: any }>(
+    type: `${REALTIME_LISTEN_TYPES.SYSTEM}`,
+    filter: {},
+    callback: (payload: any) => void
+  ): RealtimeChannel
+  on(
+    type: `${REALTIME_LISTEN_TYPES}`,
+    filter: { event: string; [key: string]: string },
+    callback: (payload: any) => void
   ): RealtimeChannel {
     if (
       this.state === CHANNEL_STATES.joined &&
