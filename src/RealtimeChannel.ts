@@ -1,4 +1,8 @@
-import { CHANNEL_EVENTS, CHANNEL_STATES } from './lib/constants'
+import {
+  CHANNEL_EVENTS,
+  CHANNEL_STATES,
+  MAX_PUSH_BUFFER_SIZE,
+} from './lib/constants'
 import Push from './lib/push'
 import type RealtimeClient from './RealtimeClient'
 import Timer from './lib/timer'
@@ -12,7 +16,6 @@ import type {
 } from './RealtimePresence'
 import * as Transformers from './lib/transformers'
 import { httpEndpointURL } from './lib/transformers'
-import { MAX_PUSH_BUFFER_SIZE } from './lib/channel-config'
 
 export type RealtimeChannelOptions = {
   config: {

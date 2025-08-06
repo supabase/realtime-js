@@ -1,8 +1,7 @@
 import assert from 'assert'
 import { describe, beforeEach, afterEach, test, vi, expect } from 'vitest'
 import RealtimeChannel from '../src/RealtimeChannel'
-import { CHANNEL_STATES } from '../src/lib/constants'
-import { MAX_PUSH_BUFFER_SIZE } from '../src/lib/channel-config'
+import { CHANNEL_STATES, MAX_PUSH_BUFFER_SIZE } from '../src/lib/constants'
 import {
   setupRealtimeTest,
   cleanupRealtimeTest,

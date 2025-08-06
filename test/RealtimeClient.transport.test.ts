@@ -1,6 +1,5 @@
 import assert from 'assert'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { WebSocket } from 'isows'
 import RealtimeClient, { HeartbeatStatus } from '../src/RealtimeClient'
 import {
   setupRealtimeTest,
