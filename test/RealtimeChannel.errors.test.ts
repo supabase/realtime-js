@@ -211,32 +211,36 @@ describe('Error Handling Consolidation', () => {
     channel.unsubscribe()
   })
 
-  describe('_handleChannelError', () => {
+  describe('Error Handling Through Public API', () => {
     let logSpy: any
 
     beforeEach(() => {
       logSpy = vi.spyOn(testSetup.socket, 'log')
     })
 
-    test('should set state to errored and schedule rejoin when not leaving or closed', () => {
-      // Set channel to joining state
+    test('should set state to errored and schedule rejoin when joinPush receives error', () => {
+      // Set channel to joining state (not joined, so error handler will work)
       channel.state = CHANNEL_STATES.joining
-      setupJoinedChannel(channel)
 
       const scheduleTimeoutSpy = vi.spyOn(
         channel.rejoinTimer,
         'scheduleTimeout'
       )
 
-      // @ts-ignore - testing private method
-      channel._handleChannelError('test-error', 'test reason')
+      // Simulate the actual error flow by calling _matchReceive directly on the joinPush
+      // This is how the error would actually be processed
+      // @ts-ignore - accessing private method for proper simulation
+      channel.joinPush._matchReceive({
+        status: 'error',
+        response: 'test reason',
+      })
 
       assert.equal(channel.state, CHANNEL_STATES.errored)
       expect(scheduleTimeoutSpy).toHaveBeenCalledTimes(1)
       // Check that log was called with the correct arguments
       expect(logSpy).toHaveBeenCalledWith(
         'channel',
-        'test-error realtime:test-error-handling',
+        `error ${channel.topic}`,
         'test reason'
       )
     })
@@ -259,35 +263,32 @@ describe('Error Handling Consolidation', () => {
         'scheduleTimeout'
       )
 
-      // @ts-ignore - testing private method
-      channel._handleChannelError('test-error', 'test reason')
+      // Trigger actual error through public API
+      channel.joinPush.trigger('error', 'test reason')
 
       assert.equal(channel.state, originalState)
       expect(scheduleTimeoutSpy).not.toHaveBeenCalled()
     })
 
-    test('should handle different error types consistently', () => {
+    test('should handle timeout events through public API', () => {
+      // Keep channel in joining state so timeout handler will trigger
       channel.state = CHANNEL_STATES.joining
-      setupJoinedChannel(channel)
 
-      // @ts-ignore - testing private method
-      channel._handleChannelError('timeout', 5000)
-      // @ts-ignore - testing private method
-      channel._handleChannelError('error', { message: 'connection failed' })
-
-      // Check the calls were made with correct arguments
-      expect(logSpy).toHaveBeenCalledTimes(2)
-      expect(logSpy).toHaveBeenNthCalledWith(
-        1,
-        'channel',
-        'timeout realtime:test-error-handling',
-        5000
+      const scheduleTimeoutSpy = vi.spyOn(
+        channel.rejoinTimer,
+        'scheduleTimeout'
       )
-      expect(logSpy).toHaveBeenNthCalledWith(
-        2,
+
+      // Simulate the actual timeout flow by calling _matchReceive directly
+      // @ts-ignore - accessing private method for proper simulation
+      channel.joinPush._matchReceive({ status: 'timeout', response: {} })
+
+      assert.equal(channel.state, CHANNEL_STATES.errored)
+      expect(scheduleTimeoutSpy).toHaveBeenCalledTimes(1)
+      expect(logSpy).toHaveBeenCalledWith(
         'channel',
-        'error realtime:test-error-handling',
-        { message: 'connection failed' }
+        `timeout ${channel.topic}`,
+        channel.joinPush.timeout
       )
     })
 
@@ -302,20 +303,22 @@ describe('Error Handling Consolidation', () => {
 
     test('should handle multiple error events gracefully', () => {
       channel.state = CHANNEL_STATES.joining
-      setupJoinedChannel(channel)
       const scheduleTimeoutSpy = vi.spyOn(
         channel.rejoinTimer,
         'scheduleTimeout'
       )
 
-      // Trigger first error
-      // @ts-ignore - testing private method
-      channel._handleChannelError('error1', 'reason1')
+      // Simulate first error through proper flow
+      // @ts-ignore - accessing private method for proper simulation
+      channel.joinPush._matchReceive({ status: 'error', response: 'reason1' })
       assert.equal(channel.state, CHANNEL_STATES.errored)
 
-      // Trigger second error - should not crash
-      // @ts-ignore - testing private method
-      channel._handleChannelError('error2', 'reason2')
+      // Reset state to test second error
+      channel.state = CHANNEL_STATES.joining
+
+      // Simulate second error - should not crash
+      // @ts-ignore - accessing private method for proper simulation
+      channel.joinPush._matchReceive({ status: 'error', response: 'reason2' })
       assert.equal(channel.state, CHANNEL_STATES.errored)
 
       // Should have called scheduleTimeout for both errors
@@ -323,32 +326,37 @@ describe('Error Handling Consolidation', () => {
     })
   })
 
-  describe('consolidated error handling in joinPush', () => {
-    test('should use consolidated error handling for joinPush timeout', () => {
+  describe('Join Push Error Integration', () => {
+    test('should handle joinPush timeout through existing error handling', () => {
       channel.subscribe()
 
-      const handleErrorSpy = vi.spyOn(channel, '_handleChannelError' as any)
+      const scheduleTimeoutSpy = vi.spyOn(
+        channel.rejoinTimer,
+        'scheduleTimeout'
+      )
 
-      // Simulate timeout by directly calling the timeout handler
-      // as the clock-based simulation is complex with async operations
+      // Simulate timeout through public API
       channel.joinPush.trigger('timeout', {})
 
-      // The timeout should be handled via _handleChannelError
-      expect(handleErrorSpy).toHaveBeenCalledWith('timeout', 1000)
+      // Verify the existing error handling works
+      assert.equal(channel.state, CHANNEL_STATES.errored)
+      expect(scheduleTimeoutSpy).toHaveBeenCalledTimes(1)
     })
 
-    test('should use consolidated error handling for joinPush error', () => {
+    test('should handle joinPush error through existing error handling', () => {
       channel.subscribe()
 
-      const handleErrorSpy = vi.spyOn(channel, '_handleChannelError' as any)
+      const scheduleTimeoutSpy = vi.spyOn(
+        channel.rejoinTimer,
+        'scheduleTimeout'
+      )
 
-      // Trigger error
+      // Trigger error through public API
       channel.joinPush.trigger('error', { message: 'join failed' })
 
-      // The error should be handled via _handleChannelError
-      expect(handleErrorSpy).toHaveBeenCalledWith('error', {
-        message: 'join failed',
-      })
+      // Verify the existing error handling works
+      assert.equal(channel.state, CHANNEL_STATES.errored)
+      expect(scheduleTimeoutSpy).toHaveBeenCalledTimes(1)
     })
   })
 })
@@ -571,45 +579,6 @@ describe('Trigger Function Error Handling', () => {
     channel._trigger('broadcast', { event: 'test' })
 
     expect(mockBinding.callback).toHaveBeenCalledTimes(3) // Only postgres events should trigger
-  })
-
-  describe('_processPayload', () => {
-    test('should call _onMessage and return result', () => {
-      const mockPayload = { test: 'data' }
-      const processedPayload = { test: 'processed' }
-
-      const onMessageSpy = vi
-        .spyOn(channel, '_onMessage')
-        .mockReturnValue(processedPayload)
-
-      // @ts-ignore - testing private method
-      const result = channel._processPayload('broadcast', mockPayload, 'ref-1')
-
-      expect(onMessageSpy).toHaveBeenCalledWith(
-        'broadcast',
-        mockPayload,
-        'ref-1'
-      )
-      assert.deepEqual(result, processedPayload)
-    })
-
-    test('should throw if _onMessage returns null for non-null payload', () => {
-      const mockPayload = { test: 'data' }
-      vi.spyOn(channel, '_onMessage').mockReturnValue(null)
-
-      // @ts-ignore - testing private method
-      assert.throws(() => {
-        channel._processPayload('broadcast', mockPayload, 'ref-1')
-      })
-    })
-
-    test('should not throw if payload is null', () => {
-      vi.spyOn(channel, '_onMessage').mockReturnValue(null)
-
-      // @ts-ignore - testing private method
-      const result = channel._processPayload('broadcast', null, 'ref-1')
-      assert.equal(result, null)
-    })
   })
 
   describe('_trigger error scenarios', () => {

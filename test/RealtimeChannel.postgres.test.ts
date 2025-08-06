@@ -1,6 +1,7 @@
 import assert from 'assert'
 import { describe, beforeEach, afterEach, test, vi, expect } from 'vitest'
 import RealtimeChannel from '../src/RealtimeChannel'
+import { CHANNEL_STATES } from '../src/lib/constants'
 import {
   setupRealtimeTest,
   cleanupRealtimeTest,
@@ -26,238 +27,271 @@ afterEach(() => {
   channel.unsubscribe()
 })
 
-describe('_validatePostgresChanges', () => {
-  test.each([
-    {
-      description: 'should return empty array when no client bindings exist',
-      bindings: undefined,
-    },
-    {
-      description: 'should return empty array when client bindings is empty',
-      bindings: [],
-    },
-  ])('$description', ({ bindings }) => {
-    channel.bindings.postgres_changes = bindings
+describe('PostgreSQL subscription validation', () => {
+  test('should handle subscription when no postgres bindings exist', () => {
+    // No postgres_changes bindings added
 
-    // @ts-ignore - testing private method
-    const result = channel._validatePostgresChanges([])
+    channel.subscribe()
 
-    assert.deepEqual(result, [])
+    // Simulate server response with no postgres changes
+    const mockServerResponse = {}
+    channel.joinPush._matchReceive({
+      status: 'ok',
+      response: mockServerResponse,
+    })
+
+    // Should successfully subscribe even without postgres bindings
+    assert.equal(channel.state, CHANNEL_STATES.joined)
   })
 
-  test('should validate and enrich bindings with server IDs', () => {
-    const clientBindings = [
-      {
-        type: 'postgres_changes',
-        filter: {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'users',
-          filter: 'id=eq.1',
-        },
-        callback: () => {},
-      },
-      {
-        type: 'postgres_changes',
-        filter: { event: 'UPDATE', schema: 'public', table: 'posts' },
-        callback: () => {},
-      },
-    ]
+  test('should successfully subscribe with matching postgres changes', () => {
+    const callbackSpy1 = vi.fn()
+    const callbackSpy2 = vi.fn()
 
-    const serverChanges = [
+    // Subscribe with multiple postgres_changes bindings
+    channel.on(
+      'postgres_changes',
       {
         event: 'INSERT',
         schema: 'public',
         table: 'users',
         filter: 'id=eq.1',
-        id: 'server-id-1',
       },
+      callbackSpy1
+    )
+
+    channel.on(
+      'postgres_changes',
       {
         event: 'UPDATE',
         schema: 'public',
         table: 'posts',
-        filter: undefined,
-        id: 'server-id-2',
       },
-    ]
+      callbackSpy2
+    )
 
-    channel.bindings.postgres_changes = clientBindings
-
-    // @ts-ignore - testing private method
-    const result = channel._validatePostgresChanges(serverChanges)
-
-    assert.equal(result.length, 2)
-    assert.equal(result[0].id, 'server-id-1')
-    assert.equal(result[1].id, 'server-id-2')
-    assert.deepEqual(result[0].filter, clientBindings[0].filter)
-    assert.deepEqual(result[1].filter, clientBindings[1].filter)
-  })
-
-  test('should throw error when bindings mismatch', () => {
-    const clientBindings = [
-      {
-        type: 'postgres_changes',
-        filter: { event: 'INSERT', schema: 'public', table: 'users' },
-        callback: () => {},
-      },
-    ]
-
-    const serverChanges = [
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'users',
-        id: 'server-id-1',
-      }, // Different event
-    ]
-
-    channel.bindings.postgres_changes = clientBindings
-
-    // @ts-ignore - testing private method
-    assert.throws(() => {
-      channel._validatePostgresChanges(serverChanges)
-    })
-  })
-})
-
-describe('_isMatchingPostgresBinding', () => {
-  test.each([
-    {
-      description: 'should return false when server change is null',
-      clientBinding: {
-        filter: {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'users',
-          filter: undefined,
-        },
-      },
-      serverChange: null,
-      expected: false,
-    },
-    {
-      description: 'should return false when server change is undefined',
-      clientBinding: {
-        filter: {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'users',
-          filter: undefined,
-        },
-      },
-      serverChange: undefined,
-      expected: false,
-    },
-    {
-      description: 'should return true when all properties match',
-      clientBinding: {
-        filter: {
+    // Simulate server response during subscription
+    const mockServerResponse = {
+      postgres_changes: [
+        {
           event: 'INSERT',
           schema: 'public',
           table: 'users',
           filter: 'id=eq.1',
+          id: 'server-id-1',
         },
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'posts',
+          filter: undefined,
+          id: 'server-id-2',
+        },
+      ],
+    }
+
+    channel.subscribe()
+
+    // Simulate successful subscription response with server IDs
+    channel.joinPush._matchReceive({
+      status: 'ok',
+      response: mockServerResponse,
+    })
+
+    // Verify channel is subscribed and bindings are enriched with server IDs
+    assert.equal(channel.state, CHANNEL_STATES.joined)
+    assert.equal(channel.bindings.postgres_changes.length, 2)
+    assert.equal(channel.bindings.postgres_changes[0].id, 'server-id-1')
+    assert.equal(channel.bindings.postgres_changes[1].id, 'server-id-2')
+  })
+
+  test('should handle subscription errors for mismatched postgres changes', () => {
+    const errorCallbackSpy = vi.fn()
+
+    // Subscribe with postgres_changes binding
+    channel.on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'users',
       },
-      serverChange: {
+      vi.fn()
+    )
+
+    // Simulate server response with mismatched changes
+    const mockServerResponse = {
+      postgres_changes: [
+        {
+          event: 'UPDATE', // Different event from client binding
+          schema: 'public',
+          table: 'users',
+          id: 'server-id-1',
+        },
+      ],
+    }
+
+    channel.subscribe(errorCallbackSpy)
+
+    // Simulate subscription response that should cause error due to mismatch
+    channel.joinPush._matchReceive({
+      status: 'ok',
+      response: mockServerResponse,
+    })
+
+    // Should call error callback and set errored state
+    expect(errorCallbackSpy).toHaveBeenCalledWith(
+      'CHANNEL_ERROR',
+      expect.any(Error)
+    )
+    assert.equal(channel.state, CHANNEL_STATES.errored)
+  })
+})
+
+describe('PostgreSQL binding matching behavior', () => {
+  test('should handle null/undefined server changes gracefully', () => {
+    const callbackSpy = vi.fn()
+
+    channel.on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'users',
+      },
+      callbackSpy
+    )
+
+    channel.subscribe()
+
+    // Simulate server response with no postgres_changes
+    const mockServerResponse = {}
+    channel.joinPush._matchReceive({
+      status: 'ok',
+      response: mockServerResponse,
+    })
+
+    // Should complete successfully
+    assert.equal(channel.state, CHANNEL_STATES.joined)
+  })
+
+  test('should match exact postgres changes correctly', () => {
+    const callbackSpy = vi.fn()
+
+    // Subscribe with specific filter
+    channel.on(
+      'postgres_changes',
+      {
         event: 'INSERT',
         schema: 'public',
         table: 'users',
         filter: 'id=eq.1',
-        id: 'server-id',
       },
-      expected: true,
-    },
-    {
-      description: 'should return true when filter is undefined in both',
-      clientBinding: {
-        filter: {
+      callbackSpy
+    )
+
+    channel.subscribe()
+
+    // Simulate server response with matching change
+    const mockServerResponse = {
+      postgres_changes: [
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'users',
+          filter: 'id=eq.1',
+          id: 'server-id-1',
+        },
+      ],
+    }
+
+    channel.joinPush._matchReceive({
+      status: 'ok',
+      response: mockServerResponse,
+    })
+
+    // Should match and enrich binding
+    assert.equal(channel.state, CHANNEL_STATES.joined)
+    assert.equal(channel.bindings.postgres_changes[0].id, 'server-id-1')
+  })
+
+  test('should match postgres changes when filter is undefined', () => {
+    const callbackSpy = vi.fn()
+
+    // Subscribe without specific filter
+    channel.on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'users',
+      },
+      callbackSpy
+    )
+
+    channel.subscribe()
+
+    // Simulate server response with matching change (no filter)
+    const mockServerResponse = {
+      postgres_changes: [
+        {
           event: 'INSERT',
           schema: 'public',
           table: 'users',
           filter: undefined,
+          id: 'server-id-1',
         },
-      },
-      serverChange: {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'users',
-        filter: undefined,
-        id: 'server-id',
-      },
-      expected: true,
-    },
-  ])('$description', ({ clientBinding, serverChange, expected }) => {
-    // @ts-ignore - testing private method
-    assert.equal(
-      channel._isMatchingPostgresBinding(clientBinding, serverChange),
-      expected
-    )
+      ],
+    }
+
+    channel.joinPush._matchReceive({
+      status: 'ok',
+      response: mockServerResponse,
+    })
+
+    // Should match successfully
+    assert.equal(channel.state, CHANNEL_STATES.joined)
+    assert.equal(channel.bindings.postgres_changes[0].id, 'server-id-1')
   })
 
   test.each([
     {
-      description: 'should return false when event differs',
-      clientBinding: {
-        filter: {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'users',
-          filter: undefined,
-        },
-      },
+      description: 'should fail when event differs',
+      clientFilter: { event: 'INSERT', schema: 'public', table: 'users' },
       serverChange: {
         event: 'UPDATE',
         schema: 'public',
         table: 'users',
-        filter: undefined,
         id: 'server-id',
       },
     },
     {
-      description: 'should return false when schema differs',
-      clientBinding: {
-        filter: {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'users',
-          filter: undefined,
-        },
-      },
+      description: 'should fail when schema differs',
+      clientFilter: { event: 'INSERT', schema: 'public', table: 'users' },
       serverChange: {
         event: 'INSERT',
         schema: 'private',
         table: 'users',
-        filter: undefined,
         id: 'server-id',
       },
     },
     {
-      description: 'should return false when table differs',
-      clientBinding: {
-        filter: {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'users',
-          filter: undefined,
-        },
-      },
+      description: 'should fail when table differs',
+      clientFilter: { event: 'INSERT', schema: 'public', table: 'users' },
       serverChange: {
         event: 'INSERT',
         schema: 'public',
         table: 'posts',
-        filter: undefined,
         id: 'server-id',
       },
     },
     {
-      description: 'should return false when filter differs',
-      clientBinding: {
-        filter: {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'users',
-          filter: 'id=eq.1',
-        },
+      description: 'should fail when filter differs',
+      clientFilter: {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'users',
+        filter: 'id=eq.1',
       },
       serverChange: {
         event: 'INSERT',
@@ -267,43 +301,62 @@ describe('_isMatchingPostgresBinding', () => {
         id: 'server-id',
       },
     },
-  ])('$description', ({ clientBinding, serverChange }) => {
-    // @ts-ignore - testing private method
-    assert.equal(
-      channel._isMatchingPostgresBinding(clientBinding, serverChange),
-      false
+  ])('$description', ({ clientFilter, serverChange }) => {
+    const errorCallbackSpy = vi.fn()
+
+    channel.on('postgres_changes', clientFilter, vi.fn())
+    channel.subscribe(errorCallbackSpy)
+
+    // Should call error callback when server change doesn't match client binding
+    const mockServerResponse = { postgres_changes: [serverChange] }
+    channel.joinPush._matchReceive({
+      status: 'ok',
+      response: mockServerResponse,
+    })
+
+    // Should trigger error callback and set errored state
+    expect(errorCallbackSpy).toHaveBeenCalledWith(
+      'CHANNEL_ERROR',
+      expect.any(Error)
     )
+    assert.equal(channel.state, CHANNEL_STATES.errored)
   })
 })
 
-describe('_handleSubscriptionError', () => {
-  let unsubscribeSpy: any
-  let testError: Error
+describe('Subscription error handling', () => {
+  test('should handle subscription errors through public API', () => {
+    const errorCallbackSpy = vi.fn()
 
-  beforeEach(() => {
-    unsubscribeSpy = vi.spyOn(channel, 'unsubscribe')
-    testError = new Error('test subscription error')
-  })
+    // Subscribe with error callback
+    channel.subscribe(errorCallbackSpy)
 
-  test('should unsubscribe, set error state, and call callback', () => {
-    const callbackSpy = vi.fn()
-
-    // @ts-ignore - testing private method
-    channel._handleSubscriptionError(callbackSpy, testError)
-
-    expect(unsubscribeSpy).toHaveBeenCalledTimes(1)
-    assert.equal(channel.state, 'errored')
-    expect(callbackSpy).toHaveBeenCalledWith('CHANNEL_ERROR', testError)
-  })
-
-  test('should handle undefined callback gracefully', () => {
-    // @ts-ignore - testing private method
-    assert.doesNotThrow(() => {
-      channel._handleSubscriptionError(undefined, testError)
+    // Simulate subscription error through joinPush
+    channel.joinPush._matchReceive({
+      status: 'error',
+      response: 'test subscription error',
     })
 
-    expect(unsubscribeSpy).toHaveBeenCalledTimes(1)
-    assert.equal(channel.state, 'errored')
+    // Should trigger error callback and set error state
+    expect(errorCallbackSpy).toHaveBeenCalledWith(
+      'CHANNEL_ERROR',
+      expect.any(Error)
+    )
+    assert.equal(channel.state, CHANNEL_STATES.errored)
+  })
+
+  test('should handle subscription errors without callback gracefully', () => {
+    // Subscribe without error callback
+    channel.subscribe()
+
+    // Simulate subscription error
+    const testError = new Error('test subscription error')
+
+    // Should not throw when no error callback provided
+    assert.doesNotThrow(() => {
+      channel.joinPush._matchReceive({ status: 'error', response: testError })
+    })
+
+    assert.equal(channel.state, CHANNEL_STATES.errored)
   })
 })
 
@@ -388,87 +441,138 @@ describe('Postgres Changes Trigger Tests', () => {
     expect(spy).toHaveBeenCalledTimes(6)
   })
 
-  test('should match postgres_changes with ID binding', () => {
-    const bind = {
-      id: 'abc123',
-      type: 'postgres_changes',
-      filter: { event: 'INSERT' },
-      callback: () => {},
-    }
-    const payload = {
-      ids: ['abc123'],
-      data: { type: 'INSERT' },
-    }
+  test('should trigger postgres_changes callback when ID matches', () => {
+    const callbackSpy = vi.fn()
 
-    // @ts-ignore - testing private method
-    assert.equal(
-      channel._shouldTriggerBinding(bind, 'postgres_changes', payload),
-      true
+    // Add binding with specific ID (simulating server-assigned ID)
+    channel.bindings.postgres_changes = [
+      {
+        id: 'abc123',
+        type: 'postgres_changes',
+        filter: { event: 'INSERT', schema: 'public', table: 'test' },
+        callback: callbackSpy,
+      },
+    ]
+
+    // Trigger with matching ID
+    channel._trigger(
+      'postgres_changes',
+      {
+        ids: ['abc123'],
+        data: {
+          type: 'INSERT',
+          table: 'test',
+          record: { id: 1 },
+          schema: 'public',
+          columns: [{ name: 'id', type: 'int4' }],
+          commit_timestamp: '2000-01-01T00:01:01Z',
+          errors: [],
+        },
+      },
+      '1'
     )
+
+    // Should trigger callback
+    expect(callbackSpy).toHaveBeenCalledTimes(1)
   })
 
-  test('should not match postgres_changes with wrong ID', () => {
-    const bind = {
-      id: 'abc123',
-      type: 'postgres_changes',
-      filter: { event: 'INSERT' },
-      callback: () => {},
-    }
-    const payload = {
-      ids: ['different-id'],
-      data: { type: 'INSERT' },
-    }
+  test('should not trigger postgres_changes callback when ID does not match', () => {
+    const callbackSpy = vi.fn()
 
-    // @ts-ignore - testing private method
-    assert.equal(
-      channel._shouldTriggerBinding(bind, 'postgres_changes', payload),
-      false
+    // Add binding with specific ID
+    channel.bindings.postgres_changes = [
+      {
+        id: 'abc123',
+        type: 'postgres_changes',
+        filter: { event: 'INSERT', schema: 'public', table: 'test' },
+        callback: callbackSpy,
+      },
+    ]
+
+    // Trigger with different ID
+    channel._trigger(
+      'postgres_changes',
+      {
+        ids: ['different-id'],
+        data: {
+          type: 'INSERT',
+          table: 'test',
+          record: { id: 1 },
+          schema: 'public',
+          columns: [{ name: 'id', type: 'int4' }],
+          commit_timestamp: '2000-01-01T00:01:01Z',
+          errors: [],
+        },
+      },
+      '1'
     )
+
+    // Should not trigger callback
+    expect(callbackSpy).toHaveBeenCalledTimes(0)
   })
 })
 
-describe('_prepareFinalPayload for postgres_changes', () => {
-  test('should transform postgres_changes payload', () => {
-    const handledPayload = {
-      ids: ['abc123'],
-      data: {
-        type: 'INSERT',
-        schema: 'public',
-        table: 'users',
-        commit_timestamp: '2023-01-01T00:00:00Z',
-        errors: [],
-        columns: [{ name: 'id', type: 'int4' }],
-        record: { id: 1, name: 'test' },
+describe('PostgreSQL payload transformation', () => {
+  test('should transform postgres_changes payload when triggered', () => {
+    const callbackSpy = vi.fn()
+
+    // Add postgres_changes binding
+    channel.bindings.postgres_changes = [
+      {
+        id: 'abc123',
+        type: 'postgres_changes',
+        filter: { event: 'INSERT', schema: 'public', table: 'users' },
+        callback: callbackSpy,
       },
-    }
+    ]
 
-    const getPayloadRecordsSpy = vi
-      .spyOn(channel, '_getPayloadRecords')
-      .mockReturnValue({
-        new: { id: 1, name: 'test' },
-        old: {},
-      })
+    // Trigger with postgres_changes payload
+    channel._trigger(
+      'postgres_changes',
+      {
+        ids: ['abc123'],
+        data: {
+          type: 'INSERT',
+          schema: 'public',
+          table: 'users',
+          commit_timestamp: '2023-01-01T00:00:00Z',
+          errors: [],
+          columns: [{ name: 'id', type: 'int4' }],
+          record: { id: 1, name: 'test' },
+        },
+      },
+      '1'
+    )
 
-    // @ts-ignore - testing private method
-    const result = channel._prepareFinalPayload({}, handledPayload)
+    // Verify callback received transformed payload
+    expect(callbackSpy).toHaveBeenCalledTimes(1)
+    const transformedPayload = callbackSpy.mock.calls[0][0]
 
-    assert.equal(result.schema, 'public')
-    assert.equal(result.table, 'users')
-    assert.equal(result.eventType, 'INSERT')
-    assert.equal(result.commit_timestamp, '2023-01-01T00:00:00Z')
-    assert.deepEqual(result.new, { id: 1, name: 'test' })
-    assert.deepEqual(result.old, {})
-    assert.deepEqual(result.errors, [])
-
-    expect(getPayloadRecordsSpy).toHaveBeenCalledWith(handledPayload.data)
+    assert.equal(transformedPayload.schema, 'public')
+    assert.equal(transformedPayload.table, 'users')
+    assert.equal(transformedPayload.eventType, 'INSERT')
+    assert.equal(transformedPayload.commit_timestamp, '2023-01-01T00:00:00Z')
+    assert.deepEqual(transformedPayload.new, { id: 1, name: 'test' })
+    assert.deepEqual(transformedPayload.errors, [])
   })
 
-  test('should return payload as-is for non-postgres events', () => {
-    const handledPayload = { event: 'test', data: 'simple' }
+  test('should pass through non-postgres payloads unchanged', () => {
+    const callbackSpy = vi.fn()
 
-    // @ts-ignore - testing private method
-    const result = channel._prepareFinalPayload({}, handledPayload)
+    // Add regular binding using the internal structure
+    channel.bindings.test_event = [
+      {
+        type: 'test_event',
+        filter: {},
+        callback: callbackSpy,
+      },
+    ]
 
-    assert.deepEqual(result, handledPayload)
+    // Trigger with regular payload
+    const originalPayload = { event: 'test', data: 'simple' }
+    channel._trigger('test_event', originalPayload, '1')
+
+    // Verify callback received original payload unchanged
+    expect(callbackSpy).toHaveBeenCalledWith(originalPayload, '1')
   })
 })
