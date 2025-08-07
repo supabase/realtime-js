@@ -7,6 +7,7 @@ import {
   beforeEach,
   expect,
   test,
+  vi,
 } from 'vitest'
 import { Server } from 'mock-socket'
 import RealtimeClient from '../src/RealtimeClient'
@@ -29,8 +30,7 @@ beforeAll(() => {
 })
 
 afterAll(() => {
-  // @ts-ignore - Deliberately removing Worker to clean up test environment
-  window.Worker = undefined
+  vi.stubGlobal('Worker', Worker)
   mockServer.close()
 })
 

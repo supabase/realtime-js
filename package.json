@@ -32,6 +32,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
+    "coverage:text": "vitest run --coverage.enabled true --coverage.reporter=text",
     "docs": "typedoc src/index.ts --out docs/v2",
     "docs:json": "typedoc --json docs/v2/spec.json --excludeExternals src/index.ts",
     "check-exports": "attw --pack .",
