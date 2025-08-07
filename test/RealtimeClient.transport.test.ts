@@ -337,6 +337,30 @@ describe('custom encoder and decoder', () => {
     })
   })
 
+  test('decodes unexpected payload types to empty object by default', () => {
+    testSetup.socket = new RealtimeClient(
+      `wss://${testSetup.projectRef}/socket`,
+      {
+        params: { apikey: '123456789' },
+      }
+    )
+
+    // Test various non-string, non-ArrayBuffer payload types that have .constructor
+    // This tests the fallback path on line 16 of serializer.ts
+    const testCases = [
+      { payload: 123, description: 'number' },
+      { payload: { foo: 'bar' }, description: 'object' },
+      { payload: [1, 2, 3], description: 'array' },
+      { payload: true, description: 'boolean' },
+    ]
+
+    testCases.forEach(({ payload, description }) => {
+      testSetup.socket.decode(payload as any, (decoded) => {
+        assert.deepStrictEqual(decoded, {}, `Expected empty object for ${description}`)
+      })
+    })
+  })
+
   test('allows custom decoding when using WebSocket transport', () => {
     let decoder = (_payload, callback) => callback('decode works')
     testSetup.socket = new RealtimeClient(

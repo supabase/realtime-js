@@ -20,7 +20,8 @@
       "Bash(awk:*)",
       "mcp__ide__getDiagnostics",
       "Bash(npx tsc:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(pnpm vitest run:*)"
     ],
     "deny": []
   }

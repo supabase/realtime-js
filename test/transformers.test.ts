@@ -6,6 +6,7 @@ import {
   convertChangeData,
   convertColumn,
   toArray,
+  toJson,
   toTimestampString,
 } from '../src/lib/transformers'
 
@@ -132,4 +133,20 @@ test('toTimestampString', () => {
   // Test non-string input to cover uncovered branch
   assert.deepEqual(toTimestampString(123), 123)
   assert.deepEqual(toTimestampString(null), null)
+})
+
+test('toJson with non-string values', () => {
+  assert.strictEqual(toJson(123), 123)
+  assert.strictEqual(toJson(null), null)
+  assert.strictEqual(toJson(true), true)
+  assert.deepEqual(toJson({ foo: 'bar' }), { foo: 'bar' })
+  assert.deepEqual(toJson([1, 2, 3]), [1, 2, 3])
+})
+
+test('toArray with non-array strings', () => {
+  assert.strictEqual(toArray('not an array', 'text'), 'not an array')
+  assert.strictEqual(toArray('simple string', 'int4'), 'simple string')
+  assert.strictEqual(toArray('no braces here', 'json'), 'no braces here')
+  assert.strictEqual(toArray('missing_closing', 'text'), 'missing_closing')
+  assert.strictEqual(toArray('missing_opening}', 'text'), 'missing_opening}')
 })

@@ -528,5 +528,23 @@ describe('Channel Lifecycle Management', () => {
       expect(destroySpy).toHaveBeenCalledTimes(2) // Once for joinPush, once for leavePush
       assert.equal(channel.state, CHANNEL_STATES.closed)
     })
+
+    test('_rejoin does nothing when channel state is leaving', () => {
+      // Set up channel to be in 'leaving' state
+      channel.state = CHANNEL_STATES.leaving
+      
+      // Spy on socket methods to verify no actions are taken
+      const leaveOpenTopicSpy = vi.spyOn(testSetup.socket, '_leaveOpenTopic')
+      const resendSpy = vi.spyOn(channel.joinPush, 'resend')
+
+      // Call _rejoin - should return early due to leaving state
+      channel._rejoin()
+
+      // Verify no actions were taken
+      expect(leaveOpenTopicSpy).not.toHaveBeenCalled()
+      expect(resendSpy).not.toHaveBeenCalled()
+      // State should remain 'leaving'
+      assert.equal(channel.state, CHANNEL_STATES.leaving)
+    })
   })
 })

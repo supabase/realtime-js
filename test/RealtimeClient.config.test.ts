@@ -44,4 +44,16 @@ describe('endpointURL', () => {
       `${testSetup.url}/websocket?apikey=123456789&vsn=1.0.0`
     )
   })
+
+  test('returns endpoint with no params (empty params object)', () => {
+    const socket = new RealtimeClient(testSetup.url, {
+      params: { apikey: '123456789' },
+    })
+    // Clear params after construction to test empty params scenario
+    socket.params = {}
+    assert.equal(
+      socket.endpointURL(),
+      `${testSetup.url}/websocket?vsn=1.0.0`
+    )
+  })
 })

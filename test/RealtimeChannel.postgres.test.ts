@@ -575,4 +575,70 @@ describe('PostgreSQL payload transformation', () => {
     // Verify callback received original payload unchanged
     expect(callbackSpy).toHaveBeenCalledWith(originalPayload, '1')
   })
+
+  test('should transform UPDATE/DELETE postgres changes with old_record data', () => {
+    const callbackSpy = vi.fn()
+
+    // Add postgres_changes binding
+    channel.bindings.postgres_changes = [
+      {
+        type: 'postgres_changes',
+        filter: { event: '*', schema: 'public', table: 'users' },
+        callback: callbackSpy,
+      },
+    ]
+
+    // Test UPDATE event with old_record
+    channel._trigger(
+      'postgres_changes',
+      {
+        ids: ['update123'],
+        data: {
+          type: 'UPDATE',
+          schema: 'public',
+          table: 'users',
+          commit_timestamp: '2023-01-01T00:00:00Z',
+          errors: [],
+          columns: [{ name: 'id', type: 'int4' }, { name: 'name', type: 'text' }],
+          record: { id: 1, name: 'updated' },
+          old_record: { id: 1, name: 'original' },
+        },
+      },
+      '1'
+    )
+
+    // Verify callback received transformed payload with old data
+    expect(callbackSpy).toHaveBeenCalledTimes(1)
+    const updatePayload = callbackSpy.mock.calls[0][0]
+
+    assert.equal(updatePayload.eventType, 'UPDATE')
+    assert.deepEqual(updatePayload.new, { id: 1, name: 'updated' })
+    assert.deepEqual(updatePayload.old, { id: 1, name: 'original' }) // This tests lines 873-877
+
+    // Test DELETE event with old_record
+    callbackSpy.mockClear()
+    channel._trigger(
+      'postgres_changes',
+      {
+        ids: ['delete123'],
+        data: {
+          type: 'DELETE',
+          schema: 'public',
+          table: 'users',
+          commit_timestamp: '2023-01-01T00:00:00Z',
+          errors: [],
+          columns: [{ name: 'id', type: 'int4' }, { name: 'name', type: 'text' }],
+          old_record: { id: 2, name: 'deleted' },
+        },
+      },
+      '1'
+    )
+
+    // Verify callback received transformed payload with old data
+    expect(callbackSpy).toHaveBeenCalledTimes(1)
+    const deletePayload = callbackSpy.mock.calls[0][0]
+
+    assert.equal(deletePayload.eventType, 'DELETE')
+    assert.deepEqual(deletePayload.old, { id: 2, name: 'deleted' }) // This tests lines 873-877
+  })
 })
