@@ -20,6 +20,18 @@
   "main": "dist/main/index.js",
   "module": "dist/module/index.js",
   "types": "dist/module/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/module/index.d.ts",
+      "import": "./dist/module/index.js",
+      "require": "./dist/main/index.js"
+    },
+    "./auto": {
+      "types": "./dist/module/index.auto.d.ts",
+      "import": "./dist/module/index.auto.js",
+      "require": "./dist/main/index.auto.js"
+    }
+  },
   "repository": "https://github.com/supabase/realtime-js",
   "author": "Supabase",
   "license": "MIT",
