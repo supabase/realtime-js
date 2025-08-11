@@ -268,4 +268,113 @@ describe('WebSocketFactory', () => {
       expect(WebSocketFactory.isWebSocketSupported()).toBe(false)
     })
   })
+
+  describe('Additional edge cases and coverage', () => {
+    test('createWebSocket with URL object', () => {
+      global.WebSocket = MockWebSocket as any
+      delete global.process
+
+      const url = new URL('wss://example.com')
+      const ws = WebSocketFactory.createWebSocket(url)
+      // URL object gets passed to constructor, MockWebSocket stores the first parameter as url
+      expect(ws.url).toEqual(url)
+    })
+
+    test('createWebSocket with single protocol string', () => {
+      global.WebSocket = MockWebSocket as any
+      delete global.process
+
+      const ws = WebSocketFactory.createWebSocket(
+        'wss://example.com',
+        'protocol1'
+      )
+      expect(ws.url).toBe('wss://example.com')
+    })
+
+    test('detectEnvironment handles partial process object', () => {
+      delete global.WebSocket
+      delete (globalThis as any).WebSocket
+      delete (global as any).WebSocket
+      global.process = { versions: {} } as any // Missing node version
+
+      const env = (WebSocketFactory as any).detectEnvironment()
+      expect(env.type).toBe('unsupported')
+    })
+
+    test('detectEnvironment handles process without versions', () => {
+      delete global.WebSocket
+      delete (globalThis as any).WebSocket
+      delete (global as any).WebSocket
+      global.process = {} as any // Missing versions
+
+      const env = (WebSocketFactory as any).detectEnvironment()
+      expect(env.type).toBe('unsupported')
+    })
+
+    test('Node.js version parsing edge cases', () => {
+      delete global.WebSocket
+      delete (globalThis as any).WebSocket
+      delete (global as any).WebSocket
+
+      // Test with non-standard version format
+      global.process = { versions: { node: 'invalid.version' } } as any
+      let env = (WebSocketFactory as any).detectEnvironment()
+      expect(env.type).toBe('unsupported')
+
+      // Test with empty version
+      global.process = { versions: { node: '' } } as any
+      env = (WebSocketFactory as any).detectEnvironment()
+      expect(env.type).toBe('unsupported')
+
+      // Test with version exactly 22
+      global.process = { versions: { node: '22.0.0' } } as any
+      env = (WebSocketFactory as any).detectEnvironment()
+      // Should check for native WebSocket in globalThis
+      expect(env.type).toBe('unsupported') // No globalThis.WebSocket in test
+    })
+
+    test('Vercel Edge detection with specific user agent', () => {
+      delete global.WebSocket
+      delete global.process
+      global.navigator = {
+        userAgent: 'Mozilla/5.0 (compatible; Vercel-Edge)',
+      } as any
+
+      const env = (WebSocketFactory as any).detectEnvironment()
+      expect(env.type).toBe('unsupported')
+      expect(env.error).toContain('Edge runtime detected')
+    })
+
+    test('getWebSocketConstructor error message formatting', () => {
+      const spy = vi.spyOn(WebSocketFactory as any, 'detectEnvironment')
+      spy.mockReturnValue({
+        type: 'unsupported',
+        constructor: null,
+        error: 'Custom error message',
+        workaround: 'Custom workaround solution',
+      })
+
+      expect(() => {
+        WebSocketFactory.getWebSocketConstructor()
+      }).toThrow(/Custom error message[\s\S]*Custom workaround solution/)
+
+      spy.mockRestore()
+    })
+
+    test('getWebSocketConstructor with error but no workaround', () => {
+      const spy = vi.spyOn(WebSocketFactory as any, 'detectEnvironment')
+      spy.mockReturnValue({
+        type: 'unsupported',
+        constructor: null,
+        error: 'Error without workaround',
+        workaround: null,
+      })
+
+      expect(() => {
+        WebSocketFactory.getWebSocketConstructor()
+      }).toThrow('Error without workaround')
+
+      spy.mockRestore()
+    })
+  })
 })

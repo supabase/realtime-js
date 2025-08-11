@@ -1,6 +1,17 @@
+// TODO(@mandarini): Remove this file in v3.0.0 - also update package.json exports
+
 import { WebSocketFactory } from './websocket-factory'
 
+/**
+ * WebSocketFactoryAuto extends WebSocketFactory with automatic WebSocket detection.
+ *
+ * @deprecated This class will be removed in v3.0.0. The main export will require
+ * explicit WebSocket transport for Node.js < 22 environments.
+ */
 export class WebSocketFactoryAuto extends WebSocketFactory {
+  // Static flag to track if warning has been shown
+  private static hasShownDeprecationWarning = false
+
   /**
    * Dynamic require for 'ws' package
    * @private
@@ -13,6 +24,21 @@ export class WebSocketFactoryAuto extends WebSocketFactory {
       return null
     } catch {
       return null
+    }
+  }
+
+  /**
+   * Show deprecation warning once per process
+   * @private
+   */
+  private static showDeprecationWarning() {
+    if (!this.hasShownDeprecationWarning) {
+      this.hasShownDeprecationWarning = true
+      console.warn(
+        '[DEPRECATED] @supabase/realtime-js/auto will be removed in v3.0.0. ' +
+          'Use explicit transport instead: ' +
+          'https://supabase.com/docs/guides/realtime/js-client#nodejs-support'
+      )
     }
   }
 

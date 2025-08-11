@@ -75,7 +75,7 @@ describe('index.auto.ts exports', () => {
     // Both should be functions but they should be different implementations
     expect(typeof RealtimeJS.WebSocketFactory).toBe('function')
     expect(typeof RealtimeJSAuto.WebSocketFactory).toBe('function')
-    
+
     // The auto version should be a different class (WebSocketFactoryAuto extends WebSocketFactory)
     expect(RealtimeJSAuto.WebSocketFactory.name).toBe('WebSocketFactoryAuto')
     expect(RealtimeJS.WebSocketFactory.name).toBe('WebSocketFactory')
@@ -83,9 +83,12 @@ describe('index.auto.ts exports', () => {
 
   test('should be able to create instances with auto WebSocket factory', () => {
     // Test that RealtimeClient works with auto factory
-    const client = new RealtimeJSAuto.RealtimeClient('ws://localhost:4000/socket', {
-      params: { apikey: 'test-key' },
-    })
+    const client = new RealtimeJSAuto.RealtimeClient(
+      'ws://localhost:4000/socket',
+      {
+        params: { apikey: 'test-key' },
+      }
+    )
     expect(client).toBeInstanceOf(RealtimeJSAuto.RealtimeClient)
 
     // Test RealtimeChannel creation
