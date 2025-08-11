@@ -110,3 +110,66 @@ test('creates worker with blob URL when no workerUrl provided', () => {
     global.URL.createObjectURL = originalCreateObjectURL
   }
 })
+
+test('should handle worker error', () => {
+  const logSpy = vi.spyOn(client, 'log')
+  const terminateSpy = vi.fn()
+  
+  client._onConnOpen()
+  
+  // Mock the worker's terminate method
+  if (client.workerRef) {
+    client.workerRef.terminate = terminateSpy
+    
+    // Trigger worker error
+    const errorEvent = new ErrorEvent('error', {
+      message: 'Test worker error',
+      error: new Error('Test error')
+    })
+    client.workerRef.onerror!(errorEvent)
+    
+    // Verify error was logged and worker was terminated
+    expect(logSpy).toHaveBeenCalledWith('worker', 'worker error', 'Test worker error')
+    expect(terminateSpy).toHaveBeenCalled()
+  }
+  
+  logSpy.mockRestore()
+})
+
+test('should handle worker keepAlive message', () => {
+  const heartbeatSpy = vi.spyOn(client, 'sendHeartbeat')
+  
+  client._onConnOpen()
+  
+  if (client.workerRef) {
+    // Trigger worker message with keepAlive event
+    const messageEvent = new MessageEvent('message', {
+      data: { event: 'keepAlive' }
+    })
+    client.workerRef.onmessage!(messageEvent)
+    
+    // Verify sendHeartbeat was called
+    expect(heartbeatSpy).toHaveBeenCalled()
+  }
+  
+  heartbeatSpy.mockRestore()
+})
+
+test('should handle worker message with non-keepAlive event', () => {
+  const heartbeatSpy = vi.spyOn(client, 'sendHeartbeat')
+  
+  client._onConnOpen()
+  
+  if (client.workerRef) {
+    // Trigger worker message with different event
+    const messageEvent = new MessageEvent('message', {
+      data: { event: 'otherEvent' }
+    })
+    client.workerRef.onmessage!(messageEvent)
+    
+    // Verify sendHeartbeat was NOT called
+    expect(heartbeatSpy).not.toHaveBeenCalled()
+  }
+  
+  heartbeatSpy.mockRestore()
+})

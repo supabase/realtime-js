@@ -83,6 +83,17 @@ describe('WebSocketFactory', () => {
       expect(env.constructor).toBe(MockWebSocket)
     })
 
+    test('detects globalThis WebSocket when globalThis.WebSocket is available but global.WebSocket is not', () => {
+      // Ensure global.WebSocket is undefined but globalThis.WebSocket is defined
+      delete global.WebSocket
+      delete (global as any).WebSocket
+      ;(globalThis as any).WebSocket = MockWebSocket
+      
+      const env = (WebSocketFactory as any).detectEnvironment()
+      expect(env.type).toBe('native')
+      expect(env.constructor).toBe(MockWebSocket)
+    })
+
     afterEach(() => {
       delete (globalThis as any).WebSocket
     })
@@ -97,6 +108,17 @@ describe('WebSocketFactory', () => {
     })
 
     test('detects global WebSocket', () => {
+      const env = (WebSocketFactory as any).detectEnvironment()
+      expect(env.type).toBe('native')
+      expect(env.constructor).toBe(MockWebSocket)
+    })
+
+    test('detects global WebSocket when both global and globalThis WebSocket are unavailable', () => {
+      // Ensure both global.WebSocket and globalThis.WebSocket are undefined
+      delete global.WebSocket
+      delete (globalThis as any).WebSocket
+      ;(global as any).WebSocket = MockWebSocket
+      
       const env = (WebSocketFactory as any).detectEnvironment()
       expect(env.type).toBe('native')
       expect(env.constructor).toBe(MockWebSocket)
@@ -333,6 +355,20 @@ describe('WebSocketFactory', () => {
       expect(env.type).toBe('unsupported') // No globalThis.WebSocket in test
     })
 
+    test('Node.js 22+ with native WebSocket available in globalThis', () => {
+      delete global.WebSocket
+      delete (global as any).WebSocket
+      global.process = { versions: { node: '22.0.0' } } as any
+      ;(globalThis as any).WebSocket = MockWebSocket
+
+      const env = (WebSocketFactory as any).detectEnvironment()
+      expect(env.type).toBe('native')
+      expect(env.constructor).toBe(MockWebSocket)
+
+      // Clean up
+      delete (globalThis as any).WebSocket
+    })
+
     test('Vercel Edge detection with specific user agent', () => {
       delete global.WebSocket
       delete global.process
@@ -373,6 +409,22 @@ describe('WebSocketFactory', () => {
       expect(() => {
         WebSocketFactory.getWebSocketConstructor()
       }).toThrow('Error without workaround')
+
+      spy.mockRestore()
+    })
+
+    test('getWebSocketConstructor with no error but no constructor', () => {
+      const spy = vi.spyOn(WebSocketFactory as any, 'detectEnvironment')
+      spy.mockReturnValue({
+        type: 'unsupported',
+        constructor: null,
+        error: null,
+        workaround: 'Some workaround',
+      })
+
+      expect(() => {
+        WebSocketFactory.getWebSocketConstructor()
+      }).toThrow(/WebSocket not supported in this environment[\s\S]*Some workaround/)
 
       spy.mockRestore()
     })

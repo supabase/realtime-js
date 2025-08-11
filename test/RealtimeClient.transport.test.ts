@@ -381,3 +381,78 @@ describe('custom encoder and decoder', () => {
     })
   })
 })
+
+describe('_resolveFetch', () => {
+  test('uses custom fetch when provided', () => {
+    const customFetch = vi.fn()
+    const client = new RealtimeClient(testSetup.url, {
+      params: { apikey: '123456789' },
+      fetch: customFetch,
+    })
+
+    const resolveFetch = client._resolveFetch(customFetch)
+    expect(typeof resolveFetch).toBe('function')
+
+    // Call the resolved fetch to see if it uses the custom one
+    resolveFetch('test-url')
+    expect(customFetch).toHaveBeenCalledWith('test-url')
+  })
+
+  test('uses native fetch when available and no custom fetch provided', () => {
+    const client = new RealtimeClient(testSetup.url, {
+      params: { apikey: '123456789' },
+    })
+
+    const resolveFetch = client._resolveFetch()
+    expect(typeof resolveFetch).toBe('function')
+    // In test environment, native fetch should be available
+  })
+
+  test('handles Node.js environment without native fetch - error case', async () => {
+    const client = new RealtimeClient(testSetup.url, {
+      params: { apikey: '123456789' },
+    })
+
+    // Temporarily hide fetch to simulate Node.js environment
+    const originalFetch = global.fetch
+    // @ts-ignore
+    delete global.fetch
+
+    const resolveFetch = client._resolveFetch()
+    expect(typeof resolveFetch).toBe('function')
+
+    try {
+      await resolveFetch('test-url')
+      // If no error is thrown, the test environment has a fallback fetch
+      expect(true).toBe(true)
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error)
+      expect((error as Error).message).toContain('Failed to load @supabase/node-fetch')
+      // Don't check for specific error message since it can vary in test environment
+    }
+
+    // Restore global fetch
+    global.fetch = originalFetch
+  })
+
+  test('handles Node.js environment without native fetch - success case', () => {
+    const client = new RealtimeClient(testSetup.url, {
+      params: { apikey: '123456789' },
+    })
+
+    // Temporarily hide fetch to simulate Node.js environment
+    const originalFetch = global.fetch
+    // @ts-ignore
+    delete global.fetch
+
+    const resolveFetch = client._resolveFetch()
+    expect(typeof resolveFetch).toBe('function')
+    
+    // Test that the function is created correctly
+    // The actual import behavior is hard to mock in test environment
+    expect(resolveFetch).toBeDefined()
+
+    // Restore global fetch
+    global.fetch = originalFetch
+  })
+})

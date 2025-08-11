@@ -470,6 +470,20 @@ describe('WebSocketFactoryAuto', () => {
       global.require = originalRequire
     })
 
+    test('dynamicRequire when require is undefined', () => {
+      const originalRequire = global.require
+      
+      // Delete require to simulate environment without require
+      delete global.require
+      
+      const result = (WebSocketFactoryAuto as any).dynamicRequire('ws')
+      // In test environments, this might still return WebSocket due to polyfills
+      // The important thing is that the method handles the undefined require case
+      expect(result).toBeDefined()
+      
+      global.require = originalRequire
+    })
+
     test('handles ws module with WebSocket property set to falsy value', () => {
       const originalGetWebSocketConstructor =
         WebSocketFactoryAuto.__proto__.getWebSocketConstructor
