@@ -197,16 +197,36 @@ export default class RealtimeClient {
     this._setAuthSafely('connect')
 
     // Establish WebSocket connection
-    if (!this.transport) {
+    if (this.transport) {
+      // Use custom transport if provided
+      this.conn = new this.transport(this.endpointURL()) as WebSocketLike
+    } else {
+      // Try to use native WebSocket
       try {
         this.conn = WebSocketFactory.createWebSocket(this.endpointURL())
       } catch (error) {
         this._setConnectionState('disconnected')
-        throw new Error(`WebSocket not available: ${(error as Error).message}`)
+        const errorMessage = (error as Error).message
+
+        // Provide helpful error message based on environment
+        if (errorMessage.includes('Node.js')) {
+          throw new Error(
+            `${errorMessage}\n\n` +
+              'To use Realtime in Node.js, you need to provide a WebSocket implementation:\n\n' +
+              'Option 1: Use Node.js 22+ which has native WebSocket support\n' +
+              'Option 2: Install and provide the "ws" package:\n\n' +
+              '  npm install ws\n\n' +
+              '  import ws from "ws"\n' +
+              '  const client = new RealtimeClient(url, {\n' +
+              '    ...options,\n' +
+              '    transport: ws\n' +
+              '  })' +
+              'Option 3: Use the auto export which handles WebSocket automatically:\n' +
+              '  import { RealtimeClient } from "@supabase/realtime-js/auto"'
+          )
+        }
+        throw new Error(`WebSocket not available: ${errorMessage}`)
       }
-    } else {
-      // Use custom transport if provided
-      this.conn = new this.transport!(this.endpointURL()) as WebSocketLike
     }
     this._setupConnectionHandlers()
   }
