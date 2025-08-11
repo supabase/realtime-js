@@ -220,7 +220,9 @@ export default class RealtimeClient {
               '  const client = new RealtimeClient(url, {\n' +
               '    ...options,\n' +
               '    transport: ws\n' +
-              '  })'
+              '  })' +
+              'Option 3: Use the auto export which handles WebSocket automatically:\n' +
+              '  import { RealtimeClient } from "@supabase/realtime-js/auto"'
           )
         }
         throw new Error(`WebSocket not available: ${errorMessage}`)
