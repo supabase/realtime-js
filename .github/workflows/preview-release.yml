@@ -39,35 +39,13 @@ jobs:
       - name: Publish preview
         id: preview
         run: |
-          OUTPUT=$(npx pkg-pr-new@latest publish --compact 2>&1)  # Capture both stdout and stderr
-          
-          echo "=== RAW OUTPUT DEBUG ==="
+          OUTPUT=$(npx pkg-pr-new@latest publish --compact)
           echo "$OUTPUT"
-          echo "=== END RAW OUTPUT ==="
-          
-          echo "=== LINE BY LINE ==="
-          echo "$OUTPUT" | cat -n
-          echo "=== END LINE BY LINE ==="
-          
-          # Try different extraction methods
-          echo "=== TESTING REGEX PATTERNS ==="
-          
-          echo "Method 1:"
-          echo "$OUTPUT" | grep -o 'https://pkg\.pr\.new/@supabase/[^[:space:]]*' || echo "Method 1 failed"
-          
-          echo "Method 2:"
-          echo "$OUTPUT" | grep 'npm i' || echo "No 'npm i' found"
-          
-          echo "Method 3:"
-          echo "$OUTPUT" | grep 'pkg.pr.new' || echo "No 'pkg.pr.new' found"
-          
-          # Final extraction
-          PREVIEW_URL=$(echo "$OUTPUT" | grep -o 'https://pkg\.pr\.new/@supabase/[^[:space:]]*' | head -1)
-          REPO_NAME=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f2)
-          
-          echo "Final extracted URL: '$PREVIEW_URL'"
+          # Extract the preview URL from the output
+          PREVIEW_URL=$(echo "$OUTPUT" | grep -oE 'https://pkg\.pr\.new/[^[:space:]]+' | head -1)
+          PACKAGE_NAME=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f2)
           echo "url=$PREVIEW_URL" >> $GITHUB_OUTPUT
-          echo "package=$REPO_NAME" >> $GITHUB_OUTPUT
+          echo "package=$PACKAGE_NAME" >> $GITHUB_OUTPUT
 
   trigger-supabase-js-tests:
     needs: preview
@@ -87,7 +65,7 @@ jobs:
                 owner: 'supabase',
                 repo: 'supabase-js',
                 workflow_id: 'external-test.yml',
-                ref: 'chore/add-cross-repo-test',  // 🎯 CHANGE THIS to your actual branch name!
+                ref: 'chore/add-cross-repo-test', 
                 inputs: {
                   triggering_repo: triggeringRepo,
                   triggering_pr: prNumber.toString(),
