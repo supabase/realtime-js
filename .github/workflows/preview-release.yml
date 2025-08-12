@@ -39,23 +39,32 @@ jobs:
       - name: Publish preview
         id: preview
         run: |
-          OUTPUT=$(npx pkg-pr-new@latest publish --compact)
-          echo "$OUTPUT"
-          # Extract the preview URL from the output
-          PREVIEW_URL=$(echo "$OUTPUT" | grep -oE 'npm i [^[:space:]]+' | head -1 | cut -d' ' -f3)
-          PACKAGE_NAME=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f2)
+          OUTPUT=$(npx pkg-pr-new@latest publish --compact 2>&1)
+          PREVIEW_URL=$(echo "$OUTPUT" | grep -o 'https://pkg\.pr\.new/@supabase/[^[:space:]]*' | head -1)
+          REPO_NAME=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f2)
+
+          echo "Preview Release URL: $PREVIEW_URL"
           echo "url=$PREVIEW_URL" >> $GITHUB_OUTPUT
-          echo "package=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+          echo "package=$REPO_NAME" >> $GITHUB_OUTPUT
 
   trigger-supabase-js-tests:
     needs: preview
     if: needs.preview.outputs.preview-url != ''
     runs-on: ubuntu-latest
     steps:
+      - name: Generate GitHub App token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.CROSS_REPO_APP_ID }}
+          private-key: ${{ secrets.CROSS_REPO_APP_PRIVATE_KEY }}
+          owner: supabase
+          repositories: realtime-js,supabase-js
+
       - name: Trigger supabase-js CI tests
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ steps.generate-token.outputs.token }}
           script: |
             const prNumber = context.issue.number || 'push';
             const triggeringRepo = context.repo.repo;
@@ -65,7 +74,7 @@ jobs:
                 owner: 'supabase',
                 repo: 'supabase-js',
                 workflow_id: 'external-test.yml',
-                ref: 'chore/add-cross-repo-test',  // 🎯 CHANGE THIS to your actual branch name!
+                ref: 'chore/add-cross-repo-test',
                 inputs: {
                   triggering_repo: triggeringRepo,
                   triggering_pr: prNumber.toString(),
@@ -78,25 +87,20 @@ jobs:
               
               console.log('Successfully triggered supabase-js tests');
               console.log('Response:', response.status);
-              
-              // Add a comment to the PR indicating tests were triggered
-              if (context.issue.number) {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: `🚀 **Preview release created!**\n\nsupabase-js CI tests have been automatically triggered on feature branch to verify compatibility.\n\n**Preview package:** \`${{ needs.preview.outputs.preview-url }}\`\n\nResults will be posted here once testing is complete.`
-                });
-              }
             } catch (error) {
               console.error('Failed to trigger supabase-js tests:', error);
-              if (context.issue.number) {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: `⚠️ **Preview release created, but failed to trigger supabase-js tests**\n\n**Preview package:** \`${{ needs.preview.outputs.preview-url }}\`\n\nError: ${error.message}\n\nPlease manually verify compatibility or contact the team.`
-                });
-              }
               throw error;
             }
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `🚀 **Preview release created!**\n\nsupabase-js CI tests have been automatically triggered on feature branch to verify compatibility.\n\n**Preview package:** \`${{ needs.preview.outputs.preview-url }}\`\n\nResults will be posted here once testing is complete.`
+            });
