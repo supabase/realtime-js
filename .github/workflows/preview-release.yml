@@ -17,6 +17,9 @@ jobs:
       (github.event_name == 'push' ||
       (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'trigger: preview')))
     runs-on: ubuntu-latest
+    outputs:
+      preview-url: ${{ steps.preview.outputs.url }}
+      package-name: ${{ steps.preview.outputs.package }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,4 +36,66 @@ jobs:
       - name: Build
         run: npm run build
 
-      - run: npx pkg-pr-new@latest publish --compact
+      - name: Publish preview
+        id: preview
+        run: |
+          OUTPUT=$(npx pkg-pr-new@latest publish --compact)
+          echo "$OUTPUT"
+          # Extract the preview URL from the output
+          PREVIEW_URL=$(echo "$OUTPUT" | grep -oE 'npm i [^[:space:]]+' | head -1 | cut -d' ' -f3)
+          PACKAGE_NAME=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f2)
+          echo "url=$PREVIEW_URL" >> $GITHUB_OUTPUT
+          echo "package=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+
+  trigger-supabase-js-tests:
+    needs: preview
+    if: needs.preview.outputs.preview-url != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger supabase-js CI tests
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.issue.number || 'push';
+            const triggeringRepo = context.repo.repo;
+
+            try {
+              const response = await github.rest.repos.createDispatchEvent({
+                owner: 'supabase',
+                repo: 'supabase-js',
+                event_type: 'test-with-preview',
+                client_payload: {
+                  triggering_repo: triggeringRepo,
+                  triggering_pr: prNumber.toString(),
+                  preview_url: '${{ needs.preview.outputs.preview-url }}',
+                  package_name: '${{ needs.preview.outputs.package-name }}',
+                  triggering_sha: context.sha,
+                  triggering_ref: context.ref
+                }
+              });
+              
+              console.log('Successfully triggered supabase-js tests');
+              console.log('Response:', response.status);
+              
+              // Add a comment to the PR indicating tests were triggered
+              if (context.issue.number) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: `🚀 **Preview release created!**\n\nsupabase-js CI tests have been automatically triggered to verify compatibility.\n\n**Preview package:** \`${{ needs.preview.outputs.preview-url }}\`\n\nResults will be posted here once testing is complete.`
+                });
+              }
+            } catch (error) {
+              console.error('Failed to trigger supabase-js tests:', error);
+              if (context.issue.number) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: `⚠️ **Preview release created, but failed to trigger supabase-js tests**\n\n**Preview package:** \`${{ needs.preview.outputs.preview-url }}\`\n\nPlease manually verify compatibility or contact the team.`
+                });
+              }
+              throw error;
+            }
