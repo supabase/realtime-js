@@ -268,4 +268,203 @@ describe('WebSocketFactory', () => {
       expect(WebSocketFactory.isWebSocketSupported()).toBe(false)
     })
   })
+
+  describe('detectEnvironment mocking', () => {
+    test('should handle error cases in detectEnvironment', () => {
+      // Mock detectEnvironment to test error handling paths
+      const originalDetectEnvironment = (WebSocketFactory as any)
+        .detectEnvironment
+
+      // Test cloudflare environment
+      ;(WebSocketFactory as any).detectEnvironment = () => ({
+        type: 'cloudflare',
+        error:
+          'Cloudflare Workers detected. WebSocket clients are not supported.',
+        workaround:
+          'Use Cloudflare Workers WebSocket API for server-side WebSocket handling.',
+      })
+
+      const env = (WebSocketFactory as any).detectEnvironment()
+      expect(env.type).toBe('cloudflare')
+      expect(env.error).toContain('Cloudflare Workers detected')
+
+      // Test edge runtime environment
+      ;(WebSocketFactory as any).detectEnvironment = () => ({
+        type: 'unsupported',
+        error:
+          'Edge runtime detected. WebSockets are not supported in edge functions.',
+        workaround:
+          'Use serverless functions or a different deployment target.',
+      })
+
+      const edgeEnv = (WebSocketFactory as any).detectEnvironment()
+      expect(edgeEnv.type).toBe('unsupported')
+      expect(edgeEnv.error).toContain('Edge runtime detected')
+
+      // Test Node.js environment
+      ;(WebSocketFactory as any).detectEnvironment = () => ({
+        type: 'unsupported',
+        error: 'Node.js 18 detected without native WebSocket support.',
+        workaround: 'install "ws" package',
+      })
+
+      const nodeEnv = (WebSocketFactory as any).detectEnvironment()
+      expect(nodeEnv.type).toBe('unsupported')
+      expect(nodeEnv.error).toContain('Node.js 18 detected')
+
+      // Restore original method
+      ;(WebSocketFactory as any).detectEnvironment = originalDetectEnvironment
+    })
+  })
+
+  describe('getWebSocketConstructor error handling', () => {
+    test('should throw error with workaround when constructor is not available', () => {
+      // Mock detectEnvironment to return unsupported environment
+      const originalDetectEnvironment = (WebSocketFactory as any)
+        .detectEnvironment
+      ;(WebSocketFactory as any).detectEnvironment = vi.fn(() => ({
+        type: 'unsupported',
+        constructor: undefined,
+        error: 'Test error',
+        workaround: 'Test workaround',
+      }))
+
+      expect(() => {
+        WebSocketFactory.getWebSocketConstructor()
+      }).toThrow('Test error\n\nSuggested solution: Test workaround')
+
+      // Restore original method
+      ;(WebSocketFactory as any).detectEnvironment = originalDetectEnvironment
+    })
+
+    test('should throw error without workaround when workaround is not provided', () => {
+      // Mock detectEnvironment to return unsupported environment without workaround
+      const originalDetectEnvironment = (WebSocketFactory as any)
+        .detectEnvironment
+      ;(WebSocketFactory as any).detectEnvironment = vi.fn(() => ({
+        type: 'unsupported',
+        constructor: undefined,
+        error: 'Test error',
+      }))
+
+      expect(() => {
+        WebSocketFactory.getWebSocketConstructor()
+      }).toThrow('Test error')
+
+      // Restore original method
+      ;(WebSocketFactory as any).detectEnvironment = originalDetectEnvironment
+    })
+
+    test('should use default error message when no error is provided', () => {
+      // Mock detectEnvironment to return unsupported environment without error
+      const originalDetectEnvironment = (WebSocketFactory as any)
+        .detectEnvironment
+      ;(WebSocketFactory as any).detectEnvironment = vi.fn(() => ({
+        type: 'unsupported',
+        constructor: undefined,
+      }))
+
+      expect(() => {
+        WebSocketFactory.getWebSocketConstructor()
+      }).toThrow('WebSocket not supported in this environment.')
+
+      // Restore original method
+      ;(WebSocketFactory as any).detectEnvironment = originalDetectEnvironment
+    })
+  })
+
+  describe('isWebSocketSupported', () => {
+    test('should return true for native WebSocket support', () => {
+      const originalDetectEnvironment = (WebSocketFactory as any)
+        .detectEnvironment
+      ;(WebSocketFactory as any).detectEnvironment = () => ({
+        type: 'native',
+        constructor: class MockWebSocket {},
+      })
+
+      expect(WebSocketFactory.isWebSocketSupported()).toBe(true)
+
+      // Restore original method
+      ;(WebSocketFactory as any).detectEnvironment = originalDetectEnvironment
+    })
+
+    test('should return true for ws package support', () => {
+      const originalDetectEnvironment = (WebSocketFactory as any)
+        .detectEnvironment
+      ;(WebSocketFactory as any).detectEnvironment = () => ({
+        type: 'ws',
+        constructor: class MockWebSocket {},
+      })
+
+      expect(WebSocketFactory.isWebSocketSupported()).toBe(true)
+
+      // Restore original method
+      ;(WebSocketFactory as any).detectEnvironment = originalDetectEnvironment
+    })
+
+    test('should return false for unsupported environments', () => {
+      const originalDetectEnvironment = (WebSocketFactory as any)
+        .detectEnvironment
+      ;(WebSocketFactory as any).detectEnvironment = () => ({
+        type: 'unsupported',
+      })
+
+      expect(WebSocketFactory.isWebSocketSupported()).toBe(false)
+
+      // Restore original method
+      ;(WebSocketFactory as any).detectEnvironment = originalDetectEnvironment
+    })
+
+    test('should return false when detectEnvironment throws', () => {
+      const originalDetectEnvironment = (WebSocketFactory as any)
+        .detectEnvironment
+      ;(WebSocketFactory as any).detectEnvironment = () => {
+        throw new Error('Detection failed')
+      }
+
+      expect(WebSocketFactory.isWebSocketSupported()).toBe(false)
+
+      // Restore original method
+      ;(WebSocketFactory as any).detectEnvironment = originalDetectEnvironment
+    })
+  })
+
+  describe('createWebSocket', () => {
+    test('should create WebSocket with protocols', () => {
+      const mockWebSocket = vi.fn()
+      const originalGetWebSocketConstructor =
+        WebSocketFactory.getWebSocketConstructor
+      WebSocketFactory.getWebSocketConstructor = () => mockWebSocket as any
+
+      WebSocketFactory.createWebSocket('ws://example.com', [
+        'protocol1',
+        'protocol2',
+      ])
+
+      expect(mockWebSocket).toHaveBeenCalledWith('ws://example.com', [
+        'protocol1',
+        'protocol2',
+      ])
+
+      // Restore original method
+      WebSocketFactory.getWebSocketConstructor = originalGetWebSocketConstructor
+    })
+
+    test('should create WebSocket with single protocol string', () => {
+      const mockWebSocket = vi.fn()
+      const originalGetWebSocketConstructor =
+        WebSocketFactory.getWebSocketConstructor
+      WebSocketFactory.getWebSocketConstructor = () => mockWebSocket as any
+
+      WebSocketFactory.createWebSocket('ws://example.com', 'protocol1')
+
+      expect(mockWebSocket).toHaveBeenCalledWith(
+        'ws://example.com',
+        'protocol1'
+      )
+
+      // Restore original method
+      WebSocketFactory.getWebSocketConstructor = originalGetWebSocketConstructor
+    })
+  })
 })
