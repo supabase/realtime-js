@@ -13,7 +13,7 @@ on:
 jobs:
   preview:
     if: >
-      github.repository_owner == 'supabase' &&
+      github.repository == 'supabase/realtime-js' &&
       (github.event_name == 'push' ||
       (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'trigger: preview')))
     runs-on: ubuntu-latest
