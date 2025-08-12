@@ -42,7 +42,7 @@ jobs:
           OUTPUT=$(npx pkg-pr-new@latest publish --compact)
           echo "$OUTPUT"
           # Extract the preview URL from the output
-          PREVIEW_URL=$(echo "$OUTPUT" | grep -oE 'npm i [^[:space:]]+' | head -1 | cut -d' ' -f3)
+          PREVIEW_URL=$(echo "$OUTPUT" | grep -oE 'npm i https://[^[:space:]]+' | head -1 | cut -d' ' -f3)
           echo "Extracted URL: '$PREVIEW_URL'"
           PACKAGE_NAME=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f2)
           echo "url=$PREVIEW_URL" >> $GITHUB_OUTPUT
