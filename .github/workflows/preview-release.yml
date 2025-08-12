@@ -61,11 +61,12 @@ jobs:
             const triggeringRepo = context.repo.repo;
 
             try {
-              const response = await github.rest.repos.createDispatchEvent({
+              const response = await github.rest.actions.createWorkflowDispatch({
                 owner: 'supabase',
                 repo: 'supabase-js',
-                event_type: 'test-with-preview',
-                client_payload: {
+                workflow_id: 'external-test.yml',
+                ref: 'chore/add-cross-repo-test',  // 🎯 CHANGE THIS to your actual branch name!
+                inputs: {
                   triggering_repo: triggeringRepo,
                   triggering_pr: prNumber.toString(),
                   preview_url: '${{ needs.preview.outputs.preview-url }}',
@@ -84,7 +85,7 @@ jobs:
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: context.issue.number,
-                  body: `🚀 **Preview release created!**\n\nsupabase-js CI tests have been automatically triggered to verify compatibility.\n\n**Preview package:** \`${{ needs.preview.outputs.preview-url }}\`\n\nResults will be posted here once testing is complete.`
+                  body: `🚀 **Preview release created!**\n\nsupabase-js CI tests have been automatically triggered on feature branch to verify compatibility.\n\n**Preview package:** \`${{ needs.preview.outputs.preview-url }}\`\n\nResults will be posted here once testing is complete.`
                 });
               }
             } catch (error) {
@@ -94,7 +95,7 @@ jobs:
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: context.issue.number,
-                  body: `⚠️ **Preview release created, but failed to trigger supabase-js tests**\n\n**Preview package:** \`${{ needs.preview.outputs.preview-url }}\`\n\nPlease manually verify compatibility or contact the team.`
+                  body: `⚠️ **Preview release created, but failed to trigger supabase-js tests**\n\n**Preview package:** \`${{ needs.preview.outputs.preview-url }}\`\n\nError: ${error.message}\n\nPlease manually verify compatibility or contact the team.`
                 });
               }
               throw error;
