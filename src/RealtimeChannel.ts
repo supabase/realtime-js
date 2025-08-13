@@ -58,7 +58,7 @@ export type RealtimePostgresUpdatePayload<T extends { [key: string]: any }> =
 
 export type RealtimePostgresDeletePayload<T extends { [key: string]: any }> =
   RealtimePostgresChangesPayloadBase & {
-    eventType: `${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.DELETE}`
+    eventType: `${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.ALL}`
     new: {}
     old: Partial<T>
   }
@@ -95,7 +95,6 @@ export enum REALTIME_POSTGRES_CHANGES_LISTEN_EVENT {
   ALL = '*',
   INSERT = 'INSERT',
   UPDATE = 'UPDATE',
-  DELETE = 'DELETE',
 }
 
 export enum REALTIME_LISTEN_TYPES {
@@ -398,7 +397,7 @@ export default class RealtimeChannel {
   ): RealtimeChannel
   on<T extends { [key: string]: any }>(
     type: `${REALTIME_LISTEN_TYPES.POSTGRES_CHANGES}`,
-    filter: RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.DELETE}`>,
+    filter: RealtimePostgresChangesFilter<`${REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.ALL}`>,
     callback: (payload: RealtimePostgresDeletePayload<T>) => void
   ): RealtimeChannel
   /**
