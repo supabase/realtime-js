@@ -14,7 +14,7 @@ on:
       target_branch:
         description: 'Target branch for supabase-js tests'
         type: string
-        default: 'chore/add-cross-repo-test'
+        default: 'master'
   
   # Push to master - only when source code changes
   push:
@@ -68,6 +68,12 @@ jobs:
           PREVIEW_URL=$(echo "$OUTPUT" | grep -o 'https://pkg\.pr\.new/@supabase/[^[:space:]]*' | head -1)
           REPO_NAME=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f2)
 
+          if [ -z "$PREVIEW_URL" ]; then
+            echo "Error: Failed to extract preview URL from pkg-pr-new output"
+            echo "Output was: $OUTPUT"
+            exit 1
+          fi
+
           echo "Preview Release URL: $PREVIEW_URL"
           echo "url=$PREVIEW_URL" >> $GITHUB_OUTPUT
           echo "package=$REPO_NAME" >> $GITHUB_OUTPUT
@@ -101,10 +107,10 @@ jobs:
           script: |
             const prNumber = context.issue.number || 'push';
             const triggeringRepo = context.repo.repo;
-            // Use input target_branch if workflow_dispatch, otherwise default
+            // Use input target_branch if workflow_dispatch, otherwise default to master
             const targetBranch = context.eventName === 'workflow_dispatch' && context.payload.inputs?.target_branch
               ? context.payload.inputs.target_branch
-              : 'chore/add-cross-repo-test';
+              : 'master';
 
             try {
               const response = await github.rest.actions.createWorkflowDispatch({
