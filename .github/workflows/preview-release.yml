@@ -20,12 +20,6 @@ on:
   push:
     branches:
       - master
-    paths:
-      - 'src/**'
-      - 'test/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'tsconfig.json'
   
   # PR triggers - only when labeled
   # Using pull_request_target to access secrets when PRs come from forks
