@@ -74,21 +74,31 @@ jobs:
     if: needs.preview.outputs.preview-url != ''
     runs-on: ubuntu-latest
     steps:
+      - name: Check secrets and vars are set
+        run: |
+          if [ -z "${{ vars.CROSS_REPO_APP_ID }}" ]; then
+            echo "❌ CROSS_REPO_APP_ID variable is not set!"
+            exit 1
+          else
+            echo "✅ CROSS_REPO_APP_ID is set: ${{ vars.CROSS_REPO_APP_ID }}"
+          fi
+          
+          if [ -z "${{ secrets.CROSS_REPO_APP_PRIVATE_KEY }}" ]; then
+            echo "❌ CROSS_REPO_APP_PRIVATE_KEY secret is not set!"
+            exit 1
+          else
+            echo "✅ CROSS_REPO_APP_PRIVATE_KEY is set (value hidden)"
+          fi
+      
       - name: Generate GitHub App token
         id: generate-token
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ secrets.CROSS_REPO_APP_ID }}
+          app-id: ${{ vars.CROSS_REPO_APP_ID }}
           private-key: ${{ secrets.CROSS_REPO_APP_PRIVATE_KEY }}
           owner: supabase
           repositories: realtime-js,supabase-js
-
-      - name: Log token
-        run: |
-            echo "Token: ${{ steps.generate-token.outputs.token }}"
-            echo "App ID: ${{ secrets.CROSS_REPO_APP_ID }}"
-            echo "Installation ID: ${{ secrets.CROSS_REPO_APP_INSTALLATION_ID }}"
-          
+      
       - name: Trigger supabase-js CI tests
         uses: actions/github-script@v7
         with:
