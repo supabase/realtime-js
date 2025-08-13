@@ -117,7 +117,7 @@ jobs:
                   triggering_pr: prNumber.toString(),
                   preview_url: '${{ needs.preview.outputs.preview-url }}',
                   package_name: '${{ needs.preview.outputs.package-name }}',
-                  triggering_sha: context.sha,
+                  triggering_sha: context.eventName === 'pull_request' ? context.payload.pull_request.head.sha : context.sha,
                   triggering_ref: context.ref
                 }
               });
