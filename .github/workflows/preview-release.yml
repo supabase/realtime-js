@@ -98,9 +98,53 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `🚀 **Preview release created!**\n\nsupabase-js CI tests have been automatically triggered on feature branch to verify compatibility.\n\n**Preview package:** \`${{ needs.preview.outputs.preview-url }}\`\n\nResults will be posted here once testing is complete.`
-            });
+            // Unique identifier for this bot's comments
+            const commentIdentifier = '<!-- realtime-js-preview-status -->';
+            
+            const body = `${commentIdentifier}
+            🚀 **Preview release created!**
+            
+            supabase-js CI tests have been automatically triggered on feature branch to verify compatibility.
+            
+            **Preview package:** \`${{ needs.preview.outputs.preview-url }}\`
+            
+            Results will be posted here once testing is complete.
+            
+            ---
+            <sub>Last updated: ${new Date().toISOString()}</sub>`;
+            
+            try {
+              // First, try to find an existing comment from this bot
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number
+              });
+              
+              // Look for a comment with our identifier
+              const botComment = comments.find(comment => 
+                comment.body && comment.body.includes(commentIdentifier)
+              );
+              
+              if (botComment) {
+                // Update existing comment
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: botComment.id,
+                  body: body
+                });
+                console.log('Successfully updated existing preview status comment');
+              } else {
+                // Create new comment if none exists
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: body
+                });
+                console.log('Successfully posted new preview status comment');
+              }
+            } catch (error) {
+              console.log('Failed to post/update comment:', error.message);
+            }
