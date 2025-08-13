@@ -119,6 +119,4 @@ jobs:
             
             Results will be posted here once testing is complete.
             
-            ---
-            <sub>Last updated: ${{ github.event.head_commit.timestamp }}</sub>
           edit-mode: replace
