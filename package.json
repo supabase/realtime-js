@@ -36,7 +36,8 @@
     "docs": "typedoc src/index.ts --out docs/v2",
     "docs:json": "typedoc --json docs/v2/spec.json --excludeExternals src/index.ts",
     "check-exports": "attw --pack .",
-    "ci": "run-s test coverage"
+    "ci": "run-s test coverage",
+    "echo-thing": "echo 'thing'"
   },
   "dependencies": {
     "@supabase/node-fetch": "^2.6.13",
