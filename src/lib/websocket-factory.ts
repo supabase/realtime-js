@@ -10,22 +10,15 @@ export interface WebSocketLike {
   close(code?: number, reason?: string): void
   send(data: string | ArrayBufferLike | Blob | ArrayBufferView): void
 
-  // Browser WebSocket style events (optional for ws package compatibility)
-  onopen?: ((this: any, ev: Event) => any) | null
-  onmessage?: ((this: any, ev: MessageEvent) => any) | null
-  onclose?: ((this: any, ev: CloseEvent) => any) | null
-  onerror?: ((this: any, ev: Event) => any) | null
+  onopen: ((this: any, ev: Event) => any) | null
+  onmessage: ((this: any, ev: MessageEvent) => any) | null
+  onclose: ((this: any, ev: CloseEvent) => any) | null
+  onerror: ((this: any, ev: Event) => any) | null
 
-  // EventEmitter style events (for ws package compatibility)
-  on?: (event: string, listener: (...args: any[]) => void) => any
-  off?: (event: string, listener: (...args: any[]) => void) => any
-  once?: (event: string, listener: (...args: any[]) => void) => any
+  addEventListener(type: string, listener: EventListener): void
+  removeEventListener(type: string, listener: EventListener): void
 
-  // DOM-style event methods (optional for ws package)
-  addEventListener?: (type: string, listener: EventListener) => void
-  removeEventListener?: (type: string, listener: EventListener) => void
-
-  // Additional properties that may exist on WebSocket implementations
+  // Add additional properties that may exist on WebSocket implementations
   binaryType?: string
   bufferedAmount?: number
   extensions?: string
