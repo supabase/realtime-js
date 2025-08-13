@@ -4,18 +4,43 @@ permissions:
   pull-requests: write
 
 on:
+  # Manual trigger with inputs for control
+  workflow_dispatch:
+    inputs:
+      trigger_supabase_js:
+        description: 'Trigger supabase-js tests'
+        type: boolean
+        default: true
+      target_branch:
+        description: 'Target branch for supabase-js tests'
+        type: string
+        default: 'chore/add-cross-repo-test'
+  
+  # Push to master - only when source code changes
   push:
     branches:
       - master
+    paths:
+      - 'src/**'
+      - 'test/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+  
+  # PR triggers - only when labeled  
   pull_request:
-    types: [opened, synchronize, labeled]
+    types: [labeled, synchronize]
 
 jobs:
   preview:
+    # Run only for PRs with 'trigger: preview' label or pushes to master
     if: >
       github.repository == 'supabase/realtime-js' &&
-      (github.event_name == 'push' ||
-      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'trigger: preview')))
+      (
+        github.event_name == 'workflow_dispatch' ||
+        github.event_name == 'push' ||
+        (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'trigger: preview'))
+      )
     runs-on: ubuntu-latest
     outputs:
       preview-url: ${{ steps.preview.outputs.url }}
@@ -49,7 +74,15 @@ jobs:
 
   trigger-supabase-js-tests:
     needs: preview
-    if: needs.preview.outputs.preview-url != ''
+    # Only run if preview URL exists and either:
+    # - Not workflow_dispatch, OR
+    # - workflow_dispatch with trigger_supabase_js = true
+    if: >
+      needs.preview.outputs.preview-url != '' &&
+      (
+        github.event_name != 'workflow_dispatch' ||
+        github.event.inputs.trigger_supabase_js == 'true'
+      )
     runs-on: ubuntu-latest
     steps:
       - name: Generate GitHub App token
@@ -68,13 +101,17 @@ jobs:
           script: |
             const prNumber = context.issue.number || 'push';
             const triggeringRepo = context.repo.repo;
+            // Use input target_branch if workflow_dispatch, otherwise default
+            const targetBranch = context.eventName === 'workflow_dispatch' && context.payload.inputs?.target_branch
+              ? context.payload.inputs.target_branch
+              : 'chore/add-cross-repo-test';
 
             try {
               const response = await github.rest.actions.createWorkflowDispatch({
                 owner: 'supabase',
                 repo: 'supabase-js',
                 workflow_id: 'external-test.yml',
-                ref: 'chore/add-cross-repo-test',
+                ref: targetBranch,
                 inputs: {
                   triggering_repo: triggeringRepo,
                   triggering_pr: prNumber.toString(),
