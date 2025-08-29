@@ -112,6 +112,7 @@ describe('WebSocketFactory', () => {
       delete global.WebSocket
       delete (globalThis as any).WebSocket
       delete (global as any).WebSocket
+      delete (global as any).window  // Ensure window is undefined for Node.js detection
       global.process = { versions: { node: '14.0.0' } } as any
     })
 
@@ -148,6 +149,7 @@ describe('WebSocketFactory', () => {
       delete global.WebSocket
       delete (globalThis as any).WebSocket
       delete (global as any).WebSocket
+      delete (global as any).window  // Ensure window is undefined for Node.js detection
       global.process = { versions: { node: '22.0.0' } } as any
     })
 

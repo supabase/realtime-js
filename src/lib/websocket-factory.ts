@@ -34,6 +34,14 @@ export interface WebSocketEnvironment {
 
 export class WebSocketFactory {
   private static detectEnvironment(): WebSocketEnvironment {
+    // Check for browser environment first - this handles CDN polyfills correctly
+    if (
+      typeof window !== 'undefined' &&
+      typeof window.WebSocket !== 'undefined'
+    ) {
+      return { type: 'native', constructor: window.WebSocket }
+    }
+
     if (typeof WebSocket !== 'undefined') {
       return { type: 'native', constructor: WebSocket }
     }
@@ -80,10 +88,15 @@ export class WebSocketFactory {
       }
     }
 
+    // Only treat as Node.js if process.versions.node is a non-empty string
+    // This handles CDN polyfills that provide mock process objects
     if (
       typeof process !== 'undefined' &&
       process.versions &&
-      process.versions.node
+      process.versions.node &&
+      typeof process.versions.node === 'string' &&
+      process.versions.node.length > 0 &&
+      typeof window === 'undefined' // Additional check to ensure we're not in a browser
     ) {
       const nodeVersion = parseInt(process.versions.node.split('.')[0])
 
