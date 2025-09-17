@@ -6,7 +6,7 @@ permissions:
 
 on:
   workflow_run:
-    workflows: ["Preview Build"]
+    workflows: ["Preview Release"]
     types: [completed]
   
   workflow_dispatch:
@@ -22,7 +22,7 @@ on:
 
 jobs:
   trigger-tests:
-    # Only run if the preview build succeeded and on the correct repository
+    # Only run if the Preview Release succeeded and on the correct repository
     if: |
       github.repository == 'supabase/realtime-js' &&
       (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
