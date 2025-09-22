@@ -6,7 +6,7 @@ permissions:
 
 on:
   workflow_run:
-    workflows: ["Preview Build", "Trigger Supabase JS Tests"]
+    workflows: ["Preview Release", "Trigger Supabase JS Tests"]
     types: [completed]
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
       
       # Only continue if we found a PR
       - name: Download preview info
-        if: steps.pr-info.outputs.found == 'true' && github.event.workflow_run.name == 'Preview Build' && github.event.workflow_run.conclusion == 'success'
+        if: steps.pr-info.outputs.found == 'true' && github.event.workflow_run.name == 'Preview Release' && github.event.workflow_run.conclusion == 'success'
         uses: actions/download-artifact@v4
         with:
           name: preview-info
@@ -54,7 +54,7 @@ jobs:
         continue-on-error: true
       
       - name: Read preview URL
-        if: steps.pr-info.outputs.found == 'true' && github.event.workflow_run.name == 'Preview Build' && github.event.workflow_run.conclusion == 'success'
+        if: steps.pr-info.outputs.found == 'true' && github.event.workflow_run.name == 'Preview Release' && github.event.workflow_run.conclusion == 'success'
         id: preview-url
         run: |
           if [ -f "preview-info/preview-url.txt" ]; then
@@ -86,7 +86,7 @@ jobs:
             <!-- realtime-js-preview-status -->
             ## 🚀 Preview Release Status
             
-            ${{ github.event.workflow_run.name == 'Preview Build' && github.event.workflow_run.conclusion == 'success' && steps.preview-url.outputs.found == 'true' && format('✅ **Preview package created successfully!**
+            ${{ github.event.workflow_run.name == 'Preview Release' && github.event.workflow_run.conclusion == 'success' && steps.preview-url.outputs.found == 'true' && format('✅ **Preview package created successfully!**
             
             📦 **Preview URL:** `{0}`
             
@@ -98,9 +98,9 @@ jobs:
             🔄 Supabase-js CI tests have been automatically triggered to verify compatibility.
             ', steps.preview-url.outputs.url) || '' }}
             
-            ${{ github.event.workflow_run.name == 'Preview Build' && github.event.workflow_run.conclusion == 'failure' && '❌ **Preview build failed**
+            ${{ github.event.workflow_run.name == 'Preview Release' && github.event.workflow_run.conclusion == 'failure' && '❌ **Preview Release failed**
             
-            Please check the [workflow logs](' }}${{ github.event.workflow_run.name == 'Preview Build' && github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.html_url || '' }}${{ github.event.workflow_run.name == 'Preview Build' && github.event.workflow_run.conclusion == 'failure' && ') for more details.' || '' }}
+            Please check the [workflow logs](' }}${{ github.event.workflow_run.name == 'Preview Release' && github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.html_url || '' }}${{ github.event.workflow_run.name == 'Preview Release' && github.event.workflow_run.conclusion == 'failure' && ') for more details.' || '' }}
             
             ${{ github.event.workflow_run.name == 'Trigger Supabase JS Tests' && github.event.workflow_run.conclusion == 'success' && '✅ **Supabase-js tests triggered successfully!**
             
