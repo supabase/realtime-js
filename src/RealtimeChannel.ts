@@ -17,13 +17,18 @@ import type {
 import * as Transformers from './lib/transformers'
 import { httpEndpointURL } from './lib/transformers'
 
+type ReplayOption = {
+  since: number
+  limit?: number
+}
+
 export type RealtimeChannelOptions = {
   config: {
     /**
      * self option enables client to receive message it broadcast
      * ack option instructs server to acknowledge that broadcast message was received
      */
-    broadcast?: { self?: boolean; ack?: boolean }
+    broadcast?: { self?: boolean; ack?: boolean; replay?: ReplayOption }
     /**
      * key option is used to track presence payload across clients
      */
@@ -414,6 +419,10 @@ export default class RealtimeChannel {
     callback: (payload: {
       type: `${REALTIME_LISTEN_TYPES.BROADCAST}`
       event: string
+      meta?: {
+        replayed?: boolean
+        id: string
+      }
       [key: string]: any
     }) => void
   ): RealtimeChannel
@@ -423,6 +432,10 @@ export default class RealtimeChannel {
     callback: (payload: {
       type: `${REALTIME_LISTEN_TYPES.BROADCAST}`
       event: string
+      meta?: {
+        replayed?: boolean
+        id: string
+      }
       payload: T
     }) => void
   ): RealtimeChannel
