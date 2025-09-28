@@ -7,7 +7,7 @@ import {
   DEFAULT_TIMEOUT,
   SOCKET_STATES,
   TRANSPORTS,
-  VSN,
+  DEFAULT_VSN,
   WS_CLOSE_NORMAL,
 } from './lib/constants'
 
@@ -82,6 +82,7 @@ export type RealtimeClientOptions = {
   timeout?: number
   heartbeatIntervalMs?: number
   heartbeatCallback?: (status: HeartbeatStatus) => void
+  vsn?: string
   logger?: Function
   encode?: Function
   decode?: Function
@@ -108,6 +109,7 @@ export default class RealtimeClient {
   accessTokenValue: string | null = null
   apiKey: string | null = null
   channels: RealtimeChannel[] = new Array()
+  vsn: string = '1.0.0'
   endPoint: string = ''
   httpEndpoint: string = ''
   /** @deprecated headers cannot be set on websocket connections */
@@ -240,7 +242,7 @@ export default class RealtimeClient {
   endpointURL(): string {
     return this._appendParams(
       this.endPoint,
-      Object.assign({}, this.params, { vsn: VSN })
+      Object.assign({}, this.params, { vsn: this.vsn })
     )
   }
 
@@ -872,6 +874,8 @@ export default class RealtimeClient {
     this.worker = options?.worker ?? false
     this.accessToken = options?.accessToken ?? null
     this.heartbeatCallback = options?.heartbeatCallback ?? noop
+    this.vsn = options?.vsn || DEFAULT_VSN
+
     // Handle special cases
     if (options?.params) this.params = options.params
     if (options?.logger) this.logger = options.logger
@@ -887,14 +891,25 @@ export default class RealtimeClient {
         return RECONNECT_INTERVALS[tries - 1] || DEFAULT_RECONNECT_FALLBACK
       })
 
-    this.encode =
-      options?.encode ??
-      ((payload: JSON, callback: Function) => {
-        return callback(JSON.stringify(payload))
-      })
+    if (this.vsn === '1.0.0') {
+      this.encode =
+        options?.encode ??
+        ((payload: JSON, callback: Function) => {
+          return callback(JSON.stringify(payload))
+        })
 
-    this.decode =
-      options?.decode ?? this.serializer.decode.bind(this.serializer)
+      this.decode =
+        options?.decode ??
+        ((payload: string, callback: Function) => {
+          return callback(JSON.parse(payload))
+        })
+    } else {
+      this.encode =
+        options?.encode ?? this.serializer.encode.bind(this.serializer)
+
+      this.decode =
+        options?.decode ?? this.serializer.decode.bind(this.serializer)
+    }
 
     // Handle worker setup
     if (this.worker) {

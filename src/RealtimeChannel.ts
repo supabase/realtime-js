@@ -508,7 +508,16 @@ export default class RealtimeChannel {
       }
     } else {
       return new Promise((resolve) => {
-        const push = this._push(args.type, args, opts.timeout || this.timeout)
+        const json = JSON.stringify(args) // JS string (UTF-16)
+        const encoder = new TextEncoder() // Encodes to UTF-8
+        const uint8 = encoder.encode(json)
+        const binaryPayload = uint8.buffer
+
+        const push = this._push(
+          args.type,
+          binaryPayload,
+          opts.timeout || this.timeout
+        )
 
         if (args.type === 'broadcast' && !this.params?.config?.broadcast?.ack) {
           resolve('ok')
@@ -605,7 +614,7 @@ export default class RealtimeChannel {
   /** @internal */
   _push(
     event: string,
-    payload: { [key: string]: any },
+    payload: { [key: string]: any } | ArrayBuffer,
     timeout = this.timeout
   ) {
     if (!this.joinedOnce) {
