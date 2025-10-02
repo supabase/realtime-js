@@ -1,3 +1,30 @@
+# ⚠️ REPOSITORY DEPRECATED - MOVED TO MONOREPO
+
+> **🚨 This repository has been moved and will be archived on October 10, 2025**
+>
+> **All development has moved to the [Supabase JS Monorepo](https://github.com/supabase/supabase-js)**
+>
+> **If you're looking for the README of `realtime-js`, you can find it at:**  
+> **https://github.com/supabase/supabase-js/tree/master/packages/core/realtime-js**
+>
+> ### What happened?
+> This repository was merged into the main Supabase JS monorepo for better coordination, testing, and releases.
+>
+> ### What you need to do:
+> - **📖 For documentation**: Visit the [new realtime-js location](https://github.com/supabase/supabase-js/tree/master/packages/core/realtime-js)
+> - **🐛 For issues**: Create them in the [supabase-js repository](https://github.com/supabase/supabase-js/issues)
+> - **🔧 For contributions**: See the [Contributing Guide](https://github.com/supabase/supabase-js/blob/master/CONTRIBUTING.md)
+> - **📚 For migration help**: Read the [Migration Guide](https://github.com/supabase/supabase-js/blob/master/docs/MIGRATION.md)
+>
+> ### If you have open work:
+> - **Uncommitted changes**: Manually transport your work to the monorepo (file structure is the same under `packages/core/realtime-js/`)
+> - **Open PRs**: Tag a maintainer in your PR and we'll help you migrate it
+> - **Issues**: Will be transported to the supabase-js repository
+>
+> **⚠️ This is the old repository. Please use the [supabase-js monorepo](https://github.com/supabase/supabase-js) going forward.**
+
+---
+
 <br />
 <p align="center">
   <a href="https://supabase.io">
@@ -8,7 +35,7 @@
     </picture>
   </a>
 
-  <h1 align="center">Supabase Realtime Client</h1>
+  <h1 align="center">Supabase Realtime Client (DEPRECATED - USE MONOREPO)</h1>
 
   <h3 align="center">Send ephemeral messages with <b>Broadcast</b>, track and synchronize state with <b>Presence</b>, and listen to database changes with <b>Postgres Change Data Capture (CDC)</b>.</h3>
 
